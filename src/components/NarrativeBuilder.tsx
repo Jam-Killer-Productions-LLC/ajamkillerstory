@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import { useAddress } from "@thirdweb-dev/react";
-import { updateNarrative, finalizeNarrative } from "../services/narrativeService";
 import { generateImage } from "../services/imageService";
-import "./global.css"; // Using global CSS as requested
+import { updateNarrative, finalizeNarrative } from "../services/narrativeService";
+import "./global.css"; // Using Global CSS As Requested
 
 // Define the data structure for the finalized narrative
 export interface NarrativeFinalizedData {
