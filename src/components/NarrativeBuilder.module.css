@@ -1,0 +1,19 @@
+.container {
+    padding: 1rem;
+    border: 1px solid #ccc;
+    margin-top: 1rem;
+  }
+  
+  button {
+    margin: 0.5rem;
+    padding: 0.5rem 1rem;
+    background-color: #222;
+    color: #fff;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.3s;
+  }
+  
+  button:hover {
+    background-color: #444;
+  }

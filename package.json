@@ -1,0 +1,36 @@
+{
+  "name": "ajamkillerstory",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Jam-Killer-Productions-LLC/ajamkillerstory.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Jam-Killer-Productions-LLC/ajamkillerstory/issues"
+  },
+  "homepage": "https://github.com/Jam-Killer-Productions-LLC/ajamkillerstory#readme",
+  "description": "",
+  "dependencies": {
+    "@thirdweb-dev/react": "latest",
+    "@thirdweb-dev/sdk": "latest",
+    "ethers": "latest",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "thirdweb": "^5.92.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.18",
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "^5.8.2",
+    "vite": "^6.2.2"
+  }
+}
