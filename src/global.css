@@ -1,29 +1,59 @@
+/* Reset some default browser styles */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
 
-.narrativeContainer {
-    padding: 1rem;
-    border: 1px solid #ccc;
-    margin-top: 1rem;
-  }
-  
-  .optionButton {
-    margin: 0.5rem;
-    padding: 0.5rem 1rem;
-    background-color: #222;
-    color: #fff;
-    border: none;
-    cursor: pointer;
-    transition: background-color 0.3s;
-  }
-  
-  .optionButton:hover {
-    background-color: #444;
-  }
-  
-  .marginTop {
-    margin-top: 1rem;
-  }
-  
-  .previewImage {
-    max-width: 100%;
-    border: 2px solid #222;
-  }
+/* Set a background color and font for the whole app */
+body {
+  font-family: Arial, sans-serif;
+  background-color: #f8f9fa;
+  color: #333;
+  line-height: 1.6;
+  padding: 1rem;
+}
+
+/* Center the main container */
+#root {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+/* Headings styling */
+h1, h2, h3, h4, h5, h6 {
+  color: #222;
+  margin-bottom: 1rem;
+}
+
+/* Paragraph styling */
+p {
+  margin-bottom: 1rem;
+}
+
+/* Button styling */
+button {
+  background-color: #007bff;
+  border: none;
+  padding: 0.75rem 1.25rem;
+  color: #fff;
+  cursor: pointer;
+  border-radius: 4px;
+  font-size: 1rem;
+  transition: background-color 0.3s ease;
+  margin: 0.5rem 0;
+}
+
+button:hover {
+  background-color: #0056b3;
+}
+
+/* Link styling */
+a {
+  color: #007bff;
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}

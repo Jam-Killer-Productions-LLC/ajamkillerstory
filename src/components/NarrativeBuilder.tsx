@@ -273,7 +273,6 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
                             key={index}
                             onClick={() => handleOptionSelect(option)}
                             className="optionButton"
-                            style={{ margin: "0.5rem" }}
                         >
                             {option}
                         </button>
