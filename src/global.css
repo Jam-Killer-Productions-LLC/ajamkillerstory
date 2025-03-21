@@ -1,0 +1,29 @@
+
+.narrativeContainer {
+    padding: 1rem;
+    border: 1px solid #ccc;
+    margin-top: 1rem;
+  }
+  
+  .optionButton {
+    margin: 0.5rem;
+    padding: 0.5rem 1rem;
+    background-color: #222;
+    color: #fff;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.3s;
+  }
+  
+  .optionButton:hover {
+    background-color: #444;
+  }
+  
+  .marginTop {
+    margin-top: 1rem;
+  }
+  
+  .previewImage {
+    max-width: 100%;
+    border: 2px solid #222;
+  }
