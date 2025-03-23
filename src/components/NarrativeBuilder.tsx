@@ -254,13 +254,25 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
                 <div className="narrative-section">
                     <h3>Your Final Narrative</h3>
                     <p>{finalNarrative}</p>
-                    <button onClick={handleGenerateImage} disabled={isGeneratingImage}>
-                        {isGeneratingImage ? "Generating..." : "Generate NFT Image"}
-                    </button>
-                    {nftImage && (
-                        <div>
+                    {!nftImage ? (
+                        <button 
+                            onClick={handleGenerateImage} 
+                            disabled={isGeneratingImage}
+                            className="generate-image-button"
+                        >
+                            {isGeneratingImage ? "Generating Image..." : "Generate NFT Image"}
+                        </button>
+                    ) : (
+                        <div className="nft-preview">
                             <h4>Your NFT Image</h4>
-                            <img src={nftImage} alt="Generated NFT" className="nft-image" />
+                            <img src={nftImage} alt="Generated NFT" />
+                            <button 
+                                onClick={() => handleGenerateImage()} 
+                                disabled={isGeneratingImage}
+                                className="regenerate-image-button"
+                            >
+                                {isGeneratingImage ? "Regenerating..." : "Regenerate Image"}
+                            </button>
                         </div>
                     )}
                 </div>

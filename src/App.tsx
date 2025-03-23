@@ -19,7 +19,16 @@ function App({ contract }: AppProps) {
   return (
     <div className="app-container">
       <header className="header">
-        <h1>Jam Killer Story</h1>
+        <img 
+          src="https://bafybeiddum77flw2fi5roohkckknerriibbfziraxvt5y723fp6r6fqvfe.ipfs.dweb.link?filename=Don't%20Kill%20the%20Jam%20Girls%20with%20Text.png" 
+          alt="Jam Killer Logo" 
+          className="logo"
+        />
+        <img 
+          src="https://bafybeihh4spo2t3ijximaydz4xnj6ymodfr5wopvso3msjvclw6pm4jnj4.ipfs.dweb.link?filename=Don'tKilltheJamheader.jpg" 
+          alt="Jam Killer Header" 
+          className="header-image"
+        />
         {!address ? (
           <ConnectWallet className="connect-button" />
         ) : (

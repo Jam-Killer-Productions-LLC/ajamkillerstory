@@ -46,6 +46,17 @@ html {
   gap: clamp(1rem, 3vw, 2rem);
 }
 
+/* Logo and Header Images */
+.logo {
+  width: clamp(150px, 30vw, 200px);
+  height: auto;
+  transition: transform var(--transition-speed) ease;
+}
+
+.logo:hover {
+  transform: scale(1.05);
+}
+
 .header-image {
   width: 100%;
   max-width: 1200px;
@@ -57,16 +68,6 @@ html {
 
 .header-image:hover {
   transform: scale(1.02);
-}
-
-.logo {
-  width: clamp(150px, 30vw, 200px);
-  height: auto;
-  transition: transform var(--transition-speed) ease;
-}
-
-.logo:hover {
-  transform: scale(1.05);
 }
 
 /* Main content */
@@ -156,17 +157,6 @@ h4 {
   border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-/* Mint section */
-.mint-section {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: clamp(0.8rem, 2vw, 1.2rem);
-  width: 100%;
-  max-width: 800px;
-  margin: 0 auto;
-}
-
 /* Paragraphs */
 p {
   font-size: clamp(1rem, 2vw, 1.2rem);
@@ -218,21 +208,9 @@ li:hover {
   transform: translateX(5px);
 }
 
-/* Image preview */
-img {
-  max-width: 100%;
-  height: auto;
-  border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-  transition: transform var(--transition-speed) ease;
-}
-
-img:hover {
-  transform: scale(1.02);
-}
-
+/* Narrative section */
 .narrative-section {
-    background-color: rgba(0, 0, 0, 0.5); /* Semi-transparent black */
+    background-color: rgba(0, 0, 0, 0.5);
     -webkit-backdrop-filter: blur(8px);
     backdrop-filter: blur(8px);
     padding: 2rem;
@@ -305,8 +283,63 @@ img:hover {
     background-color: rgba(255, 255, 255, 0.05);
 }
 
-.nft-image {
+/* NFT Image Preview */
+.nft-preview {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 2rem;
+}
+
+.nft-preview img {
     max-width: 100%;
-    border-radius: 8px;
-    margin: 1rem 0;
+    height: auto;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    transition: transform var(--transition-speed) ease;
+}
+
+.nft-preview img:hover {
+    transform: scale(1.02);
+}
+
+.generate-image-button,
+.regenerate-image-button {
+    padding: clamp(0.8rem, 2vw, 1.2rem) clamp(1.5rem, 3vw, 2.5rem);
+    font-size: clamp(1rem, 2vw, 1.2rem);
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all var(--transition-speed) ease;
+    background-color: var(--primary-color);
+    color: white;
+    margin: clamp(0.5rem, 1.5vw, 1rem) 0;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.generate-image-button:hover,
+.regenerate-image-button:hover {
+    background-color: var(--primary-hover);
+    transform: translateY(-3px) scale(1.02);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+}
+
+.generate-image-button:disabled,
+.regenerate-image-button:disabled {
+    background-color: #cccccc;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+.regenerate-image-button {
+    background-color: #666;
+}
+
+.regenerate-image-button:hover {
+    background-color: #555;
 } 
