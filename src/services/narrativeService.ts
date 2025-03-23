@@ -1,7 +1,7 @@
 // src/services/narrativeService.ts
 // Service for calling narrative endpoints from your Cloudflare Worker.
 
-const WORKER_URL = 'https://jamkillernarrator.fletcher-christians-account3359.workers.dev';
+const WORKER_URL = 'https://narratives.producerprotocol.pro';
 
 export async function updateNarrative(userId: string, answer: string) {
     try {
