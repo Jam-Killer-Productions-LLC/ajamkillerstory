@@ -1,0 +1,91 @@
+.app-container {
+  min-height: 100vh;
+  background-image: url('https://bafybeid2jqlgekawg6je7joszwyj5c7hwlein4b52ozqdozwb4sid6art4.ipfs.dweb.link?filename=dktjbackground.jpg');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  display: flex;
+  flex-direction: column;
+}
+
+.header {
+  width: 100%;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+
+.header-image {
+  width: 100%;
+  max-width: 1200px;
+  height: auto;
+  border-radius: 8px;
+}
+
+.logo {
+  width: 200px;
+  height: auto;
+}
+
+.main-content {
+  flex: 1;
+  padding: 20px;
+  color: white;
+  text-align: center;
+  background-color: rgba(0, 0, 0, 0.5);
+  margin: 20px;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+h2 {
+  font-size: 2.5rem;
+  margin-bottom: 20px;
+}
+
+.connect-button, .mint-button {
+  padding: 12px 24px;
+  font-size: 1.2rem;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background-color: #4CAF50;
+  color: white;
+  margin: 10px 0;
+}
+
+.connect-button:hover, .mint-button:hover {
+  background-color: #45a049;
+  transform: translateY(-2px);
+}
+
+.mint-button:disabled {
+  background-color: #cccccc;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.wallet-address {
+  font-size: 1rem;
+  color: #4CAF50;
+  margin-bottom: 20px;
+  font-family: monospace;
+}
+
+.mint-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+p {
+  font-size: 1.2rem;
+  margin: 10px 0;
+} 
