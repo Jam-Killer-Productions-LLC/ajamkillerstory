@@ -16,149 +16,74 @@ interface NarrativeBuilderProps {
 
 type Question = {
     prompt: string;
-    options: string[];
+    placeholder: string;
 };
 
 const narrativePaths: { [key: string]: Question[] } = {
     A: [
         {
             prompt: "What is the name of your band?",
-            options: [
-                "The Underground Rhythms",
-                "Dystopian Beats",
-                "Rebel Harmony",
-                "Sonic Resistance",
-            ],
+            placeholder: "Enter your band's name...",
         },
         {
             prompt: "Which genre defines your band's sound?",
-            options: [
-                "Rock Revolution",
-                "Electronic Uprising",
-                "Jazz Rebellion",
-                "Hybrid Dystopia",
-            ],
+            placeholder: "Describe your band's unique sound...",
         },
         {
             prompt: "Where do you host your secret gigs?",
-            options: [
-                "Abandoned subway stations",
-                "Hidden warehouses",
-                "Underground clubs",
-                "Rooftop hideouts",
-            ],
+            placeholder: "Describe your secret performance venue...",
         },
         {
             prompt: "How do you keep your gigs secret from the suppressors?",
-            options: [
-                "Encrypted invites",
-                "Word of mouth",
-                "Anonymous online forums",
-                "Secret signals in the music",
-            ],
+            placeholder: "Describe your security measures...",
         },
         {
             prompt: "What is your band's message in this dystopian world?",
-            options: [
-                "Freedom through sound",
-                "Resistance and rebellion",
-                "Unity against oppression",
-                "The power of artistic expression",
-            ],
+            placeholder: "Share your band's mission and message...",
         },
     ],
     B: [
         {
             prompt: "What is your stage name?",
-            options: [
-                "SoloCipher",
-                "Neon Prophet",
-                "Digital Bard",
-                "Synth Savior",
-            ],
+            placeholder: "Enter your stage name...",
         },
         {
             prompt: "Which music style best defines your solo act?",
-            options: [
-                "Ambient resistance",
-                "Cyberpunk symphony",
-                "Techno revolt",
-                "Acoustic insurgency",
-            ],
+            placeholder: "Describe your unique musical style...",
         },
         {
             prompt: "How do you incorporate AI in your composition?",
-            options: [
-                "Collaborative algorithms",
-                "Neural network melodies",
-                "Data-driven beats",
-                "Generative soundscapes",
-            ],
+            placeholder: "Explain your AI music creation process...",
         },
         {
             prompt: "Where do you perform your secret sets?",
-            options: [
-                "Virtual reality concerts",
-                "Secret underground venues",
-                "Rooftop livestreams",
-                "Hidden city squares",
-            ],
+            placeholder: "Describe your performance space...",
         },
         {
             prompt: "What message do you convey through your music?",
-            options: [
-                "Liberation through technology",
-                "The fusion of man and machine",
-                "Defiance against control",
-                "A new era of sound",
-            ],
+            placeholder: "Share your musical message...",
         },
     ],
     C: [
         {
             prompt: "What is your main objective?",
-            options: [
-                "Expose government corruption",
-                "Unmask corporate control",
-                "Reveal secret censorship",
-                "Inspire a musical uprising",
-            ],
+            placeholder: "Describe your mission...",
         },
         {
             prompt: "Who do you suspect is behind the suppression?",
-            options: [
-                "A powerful corporate conglomerate",
-                "The authoritarian government",
-                "A shadowy cabal of elites",
-                "Tech giants and data monopolies",
-            ],
+            placeholder: "Share your suspicions...",
         },
         {
             prompt: "What is your method of gathering evidence?",
-            options: [
-                "Hacking secure networks",
-                "Undercover investigations",
-                "Collaborating with whistleblowers",
-                "Infiltrating secret meetings",
-            ],
+            placeholder: "Explain your investigation methods...",
         },
         {
             prompt: "How do you plan to distribute your findings?",
-            options: [
-                "Encrypted digital releases",
-                "Underground press",
-                "Viral social media campaigns",
-                "Secret live broadcasts",
-            ],
+            placeholder: "Describe your distribution strategy...",
         },
         {
             prompt: "What is your final act of defiance?",
-            options: [
-                "Organize a mass protest concert",
-                "Sabotage the oppressors' systems",
-                "Publish a revolutionary manifesto",
-                "Lead a covert rebellion",
-            ],
+            placeholder: "Describe your ultimate plan...",
         },
     ],
 };
@@ -178,6 +103,7 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
     const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
     const [nftImage, setNftImage] = useState<string>("");
     const [isGeneratingImage, setIsGeneratingImage] = useState<boolean>(false);
+    const [currentAnswer, setCurrentAnswer] = useState<string>("");
 
     const handlePathSelection = (path: string) => {
         setSelectedPath(path);
@@ -185,25 +111,31 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
         setAllAnswers([]);
         setFinalNarrative("");
         setNftImage("");
+        setCurrentAnswer("");
     };
 
-    const handleOptionSelect = async (option: string) => {
+    const handleAnswerSubmit = async () => {
         if (!address) {
             alert("Please connect your wallet.");
             return;
         }
+        if (!currentAnswer.trim()) {
+            alert("Please enter an answer.");
+            return;
+        }
         setIsSubmitting(true);
         try {
-            let answerToSubmit = option;
+            let answerToSubmit = currentAnswer;
             if (allAnswers.length === 0 && selectedPath) {
-                answerToSubmit = `Path ${selectedPath}: ${option}`;
+                answerToSubmit = `Path ${selectedPath}: ${currentAnswer}`;
             }
             await updateNarrative(address, answerToSubmit);
             setAllAnswers((prev) => [...prev, answerToSubmit]);
             setCurrentQuestionIndex((prev) => prev + 1);
+            setCurrentAnswer("");
         } catch (error) {
             console.error("Error updating narrative:", error);
-            alert("Error updating narrative.");
+            alert("Error updating narrative. Please try again.");
         }
         setIsSubmitting(false);
     };
@@ -227,7 +159,7 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
             }
         } catch (error) {
             console.error("Error finalizing narrative:", error);
-            alert("Error finalizing narrative.");
+            alert("Error finalizing narrative. Please try again.");
         }
         setIsFinalizing(false);
     };
@@ -250,7 +182,7 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
             }
         } catch (error) {
             console.error("Error generating image:", error);
-            alert("Error generating image.");
+            alert("Error generating image. Please try again.");
         }
         setIsGeneratingImage(false);
     };
@@ -263,14 +195,18 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
             return (
                 <div>
                     <h4>{currentQuestion.prompt}</h4>
-                    {currentQuestion.options.map((option, index) => (
-                        <button
-                            key={index}
-                            onClick={() => handleOptionSelect(option)}
-                        >
-                            {option}
-                        </button>
-                    ))}
+                    <textarea
+                        value={currentAnswer}
+                        onChange={(e) => setCurrentAnswer(e.target.value)}
+                        placeholder={currentQuestion.placeholder}
+                        rows={4}
+                    />
+                    <button
+                        onClick={handleAnswerSubmit}
+                        disabled={isSubmitting || !currentAnswer.trim()}
+                    >
+                        {isSubmitting ? "Submitting..." : "Submit Answer"}
+                    </button>
                 </div>
             );
         }
@@ -305,7 +241,7 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
                     )}
                     {allAnswers.length > 0 && (
                         <div>
-                            <h4>Submitted Answers:</h4>
+                            <h4>Your Story So Far:</h4>
                             <ul>
                                 {allAnswers.map((answer, idx) => (
                                     <li key={idx}>{answer}</li>
