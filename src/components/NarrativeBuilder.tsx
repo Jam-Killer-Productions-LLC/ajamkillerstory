@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useAddress } from "@thirdweb-dev/react";
 import { generateImage } from "../services/imageService";
 import { updateNarrative, finalizeNarrative } from "../services/narrativeService";
-import "../global.css"; // Fixed import path
+import styles from "./NarrativeBuilder.module.css";
 
 // Define the data structure for the finalized narrative
 export interface NarrativeFinalizedData {
@@ -272,7 +272,7 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
                         <button
                             key={index}
                             onClick={() => handleOptionSelect(option)}
-                            className="optionButton"
+                            className={styles.optionButton}
                         >
                             {option}
                         </button>
@@ -284,7 +284,7 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
     };
 
     return (
-        <div className="narrativeContainer">
+        <div className={styles.narrativeContainer}>
             {!selectedPath ? (
                 <div>
                     <h3>Choose Your Destiny</h3>
@@ -303,14 +303,14 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
                     <h3>You selected Path {selectedPath}</h3>
                     {renderQuestion()}
                     {currentQuestionIndex >= narrativePaths[selectedPath].length && (
-                        <div className="marginTop">
+                        <div className={styles.marginTop}>
                             <button onClick={handleFinalize} disabled={isFinalizing}>
                                 {isFinalizing ? "Finalizing..." : "Finalize Narrative"}
                             </button>
                         </div>
                     )}
                     {allAnswers.length > 0 && (
-                        <div className="marginTop">
+                        <div className={styles.marginTop}>
                             <h4>Submitted Answers:</h4>
                             <ul>
                                 {allAnswers.map((answer, idx) => (
@@ -321,20 +321,20 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
                     )}
                 </div>
             ) : (
-                <div className="marginTop">
+                <div className={styles.marginTop}>
                     <h3>Final Narrative</h3>
                     <p>{finalNarrative}</p>
-                    <div className="marginTop">
+                    <div className={styles.marginTop}>
                         <button onClick={handleGenerateImage} disabled={isGeneratingImage}>
                             {isGeneratingImage ? "Jam's on the Way..." : "Where's My Jam?"}
                         </button>
                     </div>
                     {nftImage && (
-                        <div className="marginTop">
+                        <div className={styles.marginTop}>
                             <h4>Image Preview</h4>
                             <img
                                 src={`data:image/png;base64,${nftImage}`}
-                                className="previewImage"
+                                className={styles.previewImage}
                                 alt="NFT Preview"
                             />
                         </div>
