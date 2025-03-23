@@ -23,7 +23,7 @@ const contract = getContract({
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <ThirdwebProvider clientId="e24d90c806dc62cef0745af3ddd76314">
-      <App metadataUri={"your_metadata_uri"} narrativePath={"your_narrative_path"} contract={contract} />
+      <App contract={contract} />
     </ThirdwebProvider>
   </React.StrictMode>
 );
