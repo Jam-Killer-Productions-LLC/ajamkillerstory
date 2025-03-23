@@ -1,7 +1,7 @@
 import React from "react";
 import "./App.css";
 import { useContract, useAddress, ConnectWallet } from "@thirdweb-dev/react";
-import NarrativeBuilder from "./components/NarrativeBuilder";
+import NarrativeBuilder, { NarrativeFinalizedData } from "./components/NarrativeBuilder";
 
 interface AppProps {
   contract: any;
@@ -10,22 +10,28 @@ interface AppProps {
 function App({ contract }: AppProps) {
   const address = useAddress();
 
+  const handleNarrativeFinalized = (data: NarrativeFinalizedData) => {
+    console.log('Narrative finalized:', data);
+    // Here you can handle the finalized narrative data
+    // For example, you might want to mint an NFT or update the UI
+  };
+
   return (
-    <div className="app">
-      <header>
+    <div className="app-container">
+      <header className="header">
         <h1>Jam Killer Story</h1>
         {!address ? (
-          <ConnectWallet />
+          <ConnectWallet className="connect-button" />
         ) : (
           <div className="wallet-info">
-            <p>Connected: {address}</p>
+            <p className="wallet-address">Connected: {address}</p>
           </div>
         )}
       </header>
-      <main>
+      <main className="main-content">
         {address ? (
-          <div>
-            <NarrativeBuilder />
+          <div className="narrative-section">
+            <NarrativeBuilder onNarrativeFinalized={handleNarrativeFinalized} />
           </div>
         ) : (
           <div className="connect-prompt">
