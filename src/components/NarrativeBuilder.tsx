@@ -193,7 +193,7 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
         if (currentQuestionIndex < questions.length) {
             const currentQuestion = questions[currentQuestionIndex];
             return (
-                <div>
+                <div className="narrative-section">
                     <h4>{currentQuestion.prompt}</h4>
                     <textarea
                         value={currentAnswer}
@@ -216,7 +216,7 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
     return (
         <div>
             {!selectedPath ? (
-                <div>
+                <div className="narrative-section">
                     <h3>Choose Your Destiny</h3>
                     <button onClick={() => handlePathSelection("A")}>
                         Path A: Build a band and host live events
@@ -229,7 +229,7 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
                     </button>
                 </div>
             ) : !finalNarrative ? (
-                <div>
+                <div className="narrative-section">
                     <h3>You selected Path {selectedPath}</h3>
                     {renderQuestion()}
                     {currentQuestionIndex >= narrativePaths[selectedPath].length && (
@@ -251,21 +251,16 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
                     )}
                 </div>
             ) : (
-                <div>
-                    <h3>Final Narrative</h3>
+                <div className="narrative-section">
+                    <h3>Your Final Narrative</h3>
                     <p>{finalNarrative}</p>
-                    <div>
-                        <button onClick={handleGenerateImage} disabled={isGeneratingImage}>
-                            {isGeneratingImage ? "Jam's on the Way..." : "Where's My Jam?"}
-                        </button>
-                    </div>
+                    <button onClick={handleGenerateImage} disabled={isGeneratingImage}>
+                        {isGeneratingImage ? "Generating..." : "Generate NFT Image"}
+                    </button>
                     {nftImage && (
                         <div>
-                            <h4>Image Preview</h4>
-                            <img
-                                src={`data:image/png;base64,${nftImage}`}
-                                alt="NFT Preview"
-                            />
+                            <h4>Your NFT Image</h4>
+                            <img src={nftImage} alt="Generated NFT" className="nft-image" />
                         </div>
                     )}
                 </div>

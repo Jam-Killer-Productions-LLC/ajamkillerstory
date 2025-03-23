@@ -1,7 +1,7 @@
 // src/services/narrativeService.ts
 // Service for calling narrative endpoints from your Cloudflare Worker.
 
-const WORKER_URL = 'https://narrativesjamkiller.jam-killer-productions-llc.workers.dev';
+const WORKER_URL = 'https://jamkillernarrator.fletcher-christians-account3359.workers.dev';
 
 // Test function to verify worker endpoints
 export const testWorkerEndpoints = async () => {
@@ -54,7 +54,7 @@ export const testWorkerEndpoints = async () => {
     }
 };
 
-export const updateNarrative = async (userId: string, answer: string) => {
+export async function updateNarrative(userId: string, answer: string) {
     try {
         const response = await fetch(`${WORKER_URL}/narrative/update/${userId}`, {
             method: 'POST',
@@ -64,20 +64,20 @@ export const updateNarrative = async (userId: string, answer: string) => {
             },
             body: JSON.stringify({ answer }),
         });
-        
+
         if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || `Error updating narrative: ${response.statusText}`);
+            const errorText = await response.text();
+            throw new Error(`Failed to update narrative: ${response.status} ${response.statusText}\n${errorText}`);
         }
-        
-        return response.json();
+
+        return await response.json();
     } catch (error) {
-        console.error('Error in updateNarrative:', error);
+        console.error('Error updating narrative:', error);
         throw error;
     }
-};
+}
 
-export const finalizeNarrative = async (userId: string) => {
+export async function finalizeNarrative(userId: string) {
     try {
         const response = await fetch(`${WORKER_URL}/narrative/finalize/${userId}`, {
             method: 'POST',
@@ -86,15 +86,15 @@ export const finalizeNarrative = async (userId: string) => {
                 'Accept': 'application/json'
             }
         });
-        
+
         if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || `Error finalizing narrative: ${response.statusText}`);
+            const errorText = await response.text();
+            throw new Error(`Failed to finalize narrative: ${response.status} ${response.statusText}\n${errorText}`);
         }
-        
-        return response.json();
+
+        return await response.json();
     } catch (error) {
-        console.error('Error in finalizeNarrative:', error);
+        console.error('Error finalizing narrative:', error);
         throw error;
     }
-};
+}
