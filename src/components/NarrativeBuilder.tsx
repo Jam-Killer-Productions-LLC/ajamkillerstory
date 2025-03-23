@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useAddress } from "@thirdweb-dev/react";
 import { generateImage } from "../services/imageService";
 import { updateNarrative, finalizeNarrative } from "../services/narrativeService";
-import "./global.css"; // Using Global CSS As Requested
+import "../global.css"; // Fixed import path
 
 // Define the data structure for the finalized narrative
 export interface NarrativeFinalizedData {
@@ -59,7 +59,7 @@ const narrativePaths: { [key: string]: Question[] } = {
             ],
         },
         {
-            prompt: "What is your band’s message in this dystopian world?",
+            prompt: "What is your band's message in this dystopian world?",
             options: [
                 "Freedom through sound",
                 "Resistance and rebellion",
