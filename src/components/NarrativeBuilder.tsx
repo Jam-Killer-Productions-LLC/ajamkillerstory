@@ -218,8 +218,6 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
             const result = await finalizeNarrative(address);
             if (result.data && result.data.narrativeText) {
                 setFinalNarrative(result.data.narrativeText);
-                // Here, assume metadataUri is generated along with final narrative.
-                // For now, we'll simulate metadataUri as a placeholder.
                 onNarrativeFinalized({
                     metadataUri: "ipfs://example-metadata-cid",
                     narrativePath: selectedPath,
@@ -247,10 +245,8 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
         try {
             const prompt = buildImagePrompt(finalNarrative);
             const result = await generateImage(prompt, address);
-            if (result.imagePreview) {
-                setNftImage(result.imagePreview);
-            } else {
-                alert("Image generation failed.");
+            if (result.data && result.data.image) {
+                setNftImage(result.data.image);
             }
         } catch (error) {
             console.error("Error generating image:", error);
@@ -271,7 +267,6 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
                         <button
                             key={index}
                             onClick={() => handleOptionSelect(option)}
-                            className="option-button"
                         >
                             {option}
                         </button>
@@ -283,7 +278,7 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
     };
 
     return (
-        <div className="narrative-container">
+        <div>
             {!selectedPath ? (
                 <div>
                     <h3>Choose Your Destiny</h3>
@@ -302,14 +297,14 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
                     <h3>You selected Path {selectedPath}</h3>
                     {renderQuestion()}
                     {currentQuestionIndex >= narrativePaths[selectedPath].length && (
-                        <div className="margin-top">
+                        <div>
                             <button onClick={handleFinalize} disabled={isFinalizing}>
                                 {isFinalizing ? "Finalizing..." : "Finalize Narrative"}
                             </button>
                         </div>
                     )}
                     {allAnswers.length > 0 && (
-                        <div className="margin-top">
+                        <div>
                             <h4>Submitted Answers:</h4>
                             <ul>
                                 {allAnswers.map((answer, idx) => (
@@ -320,20 +315,19 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
                     )}
                 </div>
             ) : (
-                <div className="margin-top">
+                <div>
                     <h3>Final Narrative</h3>
                     <p>{finalNarrative}</p>
-                    <div className="margin-top">
+                    <div>
                         <button onClick={handleGenerateImage} disabled={isGeneratingImage}>
                             {isGeneratingImage ? "Jam's on the Way..." : "Where's My Jam?"}
                         </button>
                     </div>
                     {nftImage && (
-                        <div className="margin-top">
+                        <div>
                             <h4>Image Preview</h4>
                             <img
                                 src={`data:image/png;base64,${nftImage}`}
-                                className="preview-image"
                                 alt="NFT Preview"
                             />
                         </div>
