@@ -14,12 +14,13 @@ export async function updateNarrative(userId: string, answer: string) {
             body: JSON.stringify({ answer }),
         });
 
+        const responseData = await response.json();
+        
         if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`Failed to update narrative: ${response.status} ${response.statusText}\n${errorText}`);
+            throw new Error(responseData.error || `Failed to update narrative: ${response.status}`);
         }
 
-        return await response.json();
+        return responseData;
     } catch (error) {
         console.error('Error updating narrative:', error);
         throw error;
@@ -36,12 +37,13 @@ export async function finalizeNarrative(userId: string) {
             }
         });
 
+        const responseData = await response.json();
+        
         if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`Failed to finalize narrative: ${response.status} ${response.statusText}\n${errorText}`);
+            throw new Error(responseData.error || `Failed to finalize narrative: ${response.status}`);
         }
 
-        return await response.json();
+        return responseData;
     } catch (error) {
         console.error('Error finalizing narrative:', error);
         throw error;
