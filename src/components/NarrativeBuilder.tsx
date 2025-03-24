@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useAddress } from "@thirdweb-dev/react";
 import { generateImage } from "../services/imageService";
 import { updateNarrative, finalizeNarrative } from "../services/narrativeService";
+import { uploadMetadata } from "../services/metadataService";
 
 // Define the data structure for the finalized narrative
 export interface NarrativeFinalizedData {
@@ -175,10 +176,32 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
             const result = await generateImage(prompt, address);
             if (result.image) {
                 setNftImage(result.image);
+                
+                // Add metadata upload here
+                const metadata = {
+                    name: "Don't Kill The Jam NFT",
+                    description: finalNarrative,
+                    image: result.image,
+                    attributes: [
+                        {
+                            trait_type: "Path",
+                            value: selectedPath
+                        }
+                    ]
+                };
+                
+                const metadataResult = await uploadMetadata(metadata, address);
+                console.log("Metadata uploaded:", metadataResult);
+                
+                // Update the metadata URI in the parent component
+                onNarrativeFinalized({
+                    metadataUri: metadataResult.uri,
+                    narrativePath: selectedPath,
+                });
             }
         } catch (error) {
-            console.error("Error generating image:", error);
-            alert("Error generating image. Please try again.");
+            console.error("Error in process:", error);
+            alert("Error in process. Please try again.");
         }
         setIsGeneratingImage(false);
     };
