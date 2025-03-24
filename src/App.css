@@ -349,4 +349,245 @@ li:hover {
 
 .regenerate-image-button:hover {
     background-color: #555;
+} /* Add this closing brace */
+
+/* Process steps indicator */
+.process-steps {
+    display: flex;
+    justify-content: space-between;
+    margin: 2rem 0;
+    position: relative;
+    max-width: 600px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.process-steps::before {
+    content: '';
+    position: absolute;
+    top: 15px;
+    left: 40px;
+    right: 40px;
+    height: 2px;
+    background: rgba(255, 255, 255, 0.2);
+    z-index: 1;
+}
+
+.process-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+    z-index: 2;
+    width: 33.333%;
+}
+
+.step-number {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background-color: rgba(255, 255, 255, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 8px;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    transition: all 0.3s ease;
+}
+
+.step-name {
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.6);
+    transition: all 0.3s ease;
+}
+
+.process-step.active .step-number {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+    transform: scale(1.2);
+    box-shadow: 0 0 15px rgba(76, 175, 80, 0.5);
+}
+
+.process-step.active .step-name {
+    color: var(--primary-color);
+    font-weight: bold;
+}
+
+.process-step.completed .step-number {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+}
+
+.process-step.completed .step-name {
+    color: var(--primary-color);
+}
+
+/* Status messages */
+.status-message {
+    background-color: rgba(0, 0, 0, 0.5);
+    padding: 1rem;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+    text-align: center;
+    color: white;
+}
+
+.existing-data-message {
+    background-color: rgba(76, 175, 80, 0.2);
+    padding: 1.5rem;
+    border-radius: 8px;
+    margin-bottom: 1.5rem;
+    text-align: center;
+    border: 1px solid rgba(76, 175, 80, 0.4);
+}
+
+.button-group {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    margin-top: 1rem;
+}
+
+/* Metadata display */
+.metadata-uri {
+    background-color: rgba(0, 0, 0, 0.3);
+    padding: 0.5rem;
+    border-radius: 4px;
+    font-family: monospace;
+    word-break: break-all;
+    margin: 1rem 0;
+    font-size: 0.9rem;
+}
+
+.mint-container {
+    background-color: rgba(0, 0, 0, 0.3);
+    padding: 1.5rem;
+    border-radius: 8px;
+    margin-top: 1.5rem;
+}
+
+/* Additional buttons */
+.upload-metadata-button {
+    background-color: #ff9800;
+    color: white;
+    padding: 0.8rem 1.5rem;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    margin-top: 1rem;
+    transition: all 0.3s ease;
+}
+
+.upload-metadata-button:hover {
+    background-color: #f57c00;
+    transform: translateY(-3px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+}
+
+.reset-button {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: white;
+    padding: 0.6rem 1.2rem;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    margin-top: 2rem;
+    transition: all 0.3s ease;
+}
+
+.reset-button:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+/* Mint status styles */
+.mint-status {
+    padding: 1rem;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+    text-align: center;
+}
+
+.mint-status.pending {
+    background-color: rgba(255, 152, 0, 0.2);
+    border: 1px solid rgba(255, 152, 0, 0.4);
+}
+
+.mint-status.success {
+    background-color: rgba(76, 175, 80, 0.2);
+    border: 1px solid rgba(76, 175, 80, 0.4);
+}
+
+.mint-status.error {
+    background-color: rgba(244, 67, 54, 0.2);
+    border: 1px solid rgba(244, 67, 54, 0.4);
+}
+
+.tx-link {
+    display: inline-block;
+    margin-top: 0.5rem;
+    color: var(--primary-color);
+    text-decoration: underline;
+}
+
+.mint-info {
+    font-size: 0.9rem;
+    color: rgba(255, 255, 255, 0.7);
+    margin-top: 1rem;
+}
+
+.mint-button.success {
+    background-color: var(--primary-color);
+    cursor: default;
+}
+/* Notification styles */
+.notification {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 15px 20px;
+    border-radius: 8px;
+    color: white;
+    z-index: 1000;
+    animation: slideIn 0.3s ease-out;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-width: 300px;
+    max-width: 400px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.notification.success {
+    background-color: rgba(76, 175, 80, 0.9);
+}
+
+.notification.error {
+    background-color: rgba(244, 67, 54, 0.9);
+}
+
+.notification.info {
+    background-color: rgba(33, 150, 243, 0.9);
+}
+
+.close-notification {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 20px;
+    cursor: pointer;
+    margin-left: 10px;
+    padding: 0 5px;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
 }

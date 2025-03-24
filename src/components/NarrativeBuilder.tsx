@@ -1,8 +1,9 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useAddress } from "@thirdweb-dev/react";
-import { generateImage } from "../services/imageService";
+import { generateImage, checkExistingImage } from "../services/imageService";
 import { updateNarrative, finalizeNarrative } from "../services/narrativeService";
 import { uploadMetadata } from "../services/metadataService";
+import MintNFT from "./MintNFT";
 
 // Define the data structure for the finalized narrative
 export interface NarrativeFinalizedData {
@@ -19,6 +20,12 @@ type Question = {
     prompt: string;
     placeholder: string;
 };
+
+// Define notification type
+interface Notification {
+    type: 'success' | 'error' | 'info';
+    message: string;
+}
 
 const narrativePaths: { [key: string]: Question[] } = {
     A: [
@@ -105,6 +112,41 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
     const [nftImage, setNftImage] = useState<string>("");
     const [isGeneratingImage, setIsGeneratingImage] = useState<boolean>(false);
     const [currentAnswer, setCurrentAnswer] = useState<string>("");
+    const [metadataUri, setMetadataUri] = useState<string>("");
+    const [processingStep, setProcessingStep] = useState<string>("narrative"); // narrative, image, metadata, mint
+    const [isCheckingExisting, setIsCheckingExisting] = useState<boolean>(false);
+    const [hasExistingData, setHasExistingData] = useState<boolean>(false);
+    const [notification, setNotification] = useState<Notification | null>(null);
+
+    // Function to show notifications
+    const showNotification = (type: 'success' | 'error' | 'info', message: string) => {
+        setNotification({ type, message });
+        // Auto-hide after 5 seconds
+        setTimeout(() => setNotification(null), 5000);
+    };
+
+    // Check for existing data when address changes
+    useEffect(() => {
+        const checkForExistingData = async () => {
+            if (!address) return;
+            
+            setIsCheckingExisting(true);
+            try {
+                // Check for existing image
+                const existingImage = await checkExistingImage(address);
+                if (existingImage && existingImage.image) {
+                    setHasExistingData(true);
+                    setNftImage(existingImage.image);
+                    showNotification('info', 'We found an existing NFT image for your wallet. You can continue with it or start over.');
+                }
+            } catch (error) {
+                console.error("Error checking for existing data:", error);
+            }
+            setIsCheckingExisting(false);
+        };
+        
+        checkForExistingData();
+    }, [address]);
 
     const handlePathSelection = (path: string) => {
         setSelectedPath(path);
@@ -113,15 +155,17 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
         setFinalNarrative("");
         setNftImage("");
         setCurrentAnswer("");
+        setMetadataUri("");
+        setProcessingStep("narrative");
     };
 
     const handleAnswerSubmit = async () => {
         if (!address) {
-            alert("Please connect your wallet.");
+            showNotification('error', 'Please connect your wallet.');
             return;
         }
         if (!currentAnswer.trim()) {
-            alert("Please enter an answer.");
+            showNotification('error', 'Please enter an answer.');
             return;
         }
         setIsSubmitting(true);
@@ -134,9 +178,16 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
             setAllAnswers((prev) => [...prev, answerToSubmit]);
             setCurrentQuestionIndex((prev) => prev + 1);
             setCurrentAnswer("");
+            
+            // Show success notification
+            if (currentQuestionIndex + 1 >= narrativePaths[selectedPath].length) {
+                showNotification('success', 'All questions answered! You can now finalize your narrative.');
+            } else {
+                showNotification('success', 'Answer submitted successfully!');
+            }
         } catch (error) {
             console.error("Error updating narrative:", error);
-            alert("Error updating narrative. Please try again.");
+            showNotification('error', 'Error updating narrative. Please try again.');
         }
         setIsSubmitting(false);
     };
@@ -144,66 +195,107 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
     const handleFinalize = async () => {
         setIsFinalizing(true);
         try {
+            showNotification('info', 'Finalizing your narrative...');
             const result = await finalizeNarrative(address as string);
             if (result.data && result.data.narrativeText) {
                 setFinalNarrative(result.data.narrativeText);
-                onNarrativeFinalized({
-                    metadataUri: "ipfs://example-metadata-cid",
-                    narrativePath: selectedPath,
-                });
+                setProcessingStep("image");
+                showNotification('success', 'Narrative finalized! You can now generate your NFT image.');
             } else {
-                alert("No narrative returned.");
+                showNotification('error', 'No narrative returned.');
             }
         } catch (error) {
             console.error("Error finalizing narrative:", error);
-            alert("Error finalizing narrative. Please try again.");
+            showNotification('error', 'Error finalizing narrative. Please try again.');
         }
         setIsFinalizing(false);
     };
 
-    const handleGenerateImage = async () => {
+    const handleGenerateImage = async (forceNew = false) => {
         if (!address) {
-            alert("Please connect your wallet.");
+            showNotification('error', 'Please connect your wallet.');
             return;
         }
         if (!finalNarrative) {
-            alert("Finalize your narrative before generating an image.");
+            showNotification('error', 'Finalize your narrative before generating an image.');
             return;
         }
         setIsGeneratingImage(true);
         try {
+            showNotification('info', 'Generating your NFT image. This may take a moment...');
             const prompt = buildImagePrompt(finalNarrative);
-            const result = await generateImage(prompt, address);
+            const result = await generateImage(prompt, address, forceNew);
             if (result.image) {
                 setNftImage(result.image);
-                
-                // Add metadata upload here
-                const metadata = {
-                    name: "Don't Kill The Jam NFT",
-                    description: finalNarrative,
-                    image: result.image,
-                    attributes: [
-                        {
-                            trait_type: "Path",
-                            value: selectedPath
-                        }
-                    ]
-                };
-                
-                const metadataResult = await uploadMetadata(metadata, address);
-                console.log("Metadata uploaded:", metadataResult);
+                setProcessingStep("metadata");
+                showNotification('success', 'Image generated successfully! Ready to upload to IPFS.');
+            }
+        } catch (error) {
+            console.error("Error in process:", error);
+            showNotification('error', 'Error generating image. Please try again.');
+            setProcessingStep("image");
+        }
+        setIsGeneratingImage(false);
+    };
+    
+    const handleUploadMetadata = async (imageData: string) => {
+        if (!address || !finalNarrative || !imageData) {
+            showNotification('error', 'Missing required data for metadata upload.');
+            return;
+        }
+        
+        setProcessingStep("metadata");
+        showNotification('info', 'Uploading metadata to IPFS...');
+        
+        try {
+            const metadata = {
+                name: "Don't Kill The Jam NFT",
+                description: finalNarrative,
+                image: imageData,
+                attributes: [
+                    {
+                        trait_type: "Path",
+                        value: selectedPath
+                    }
+                ]
+            };
+            
+            const metadataResult = await uploadMetadata(metadata, address);
+            console.log("Metadata uploaded:", metadataResult);
+            
+            if (metadataResult.uri) {
+                setMetadataUri(metadataResult.uri);
+                setProcessingStep("mint");
+                showNotification('success', 'Metadata uploaded successfully! You can now mint your NFT.');
                 
                 // Update the metadata URI in the parent component
                 onNarrativeFinalized({
                     metadataUri: metadataResult.uri,
                     narrativePath: selectedPath,
                 });
+            } else {
+                throw new Error("No metadata URI returned");
             }
         } catch (error) {
-            console.error("Error in process:", error);
-            alert("Error in process. Please try again.");
+            console.error("Error uploading metadata:", error);
+            showNotification('error', 'Error uploading metadata. Please try again.');
+            setProcessingStep("metadata");
         }
-        setIsGeneratingImage(false);
+    };
+
+    const handleResetProcess = () => {
+        if (window.confirm("This will reset your current progress. Continue?")) {
+            setSelectedPath("");
+            setCurrentQuestionIndex(0);
+            setAllAnswers([]);
+            setFinalNarrative("");
+            setNftImage("");
+            setCurrentAnswer("");
+            setMetadataUri("");
+            setProcessingStep("narrative");
+            setHasExistingData(false);
+            showNotification('info', 'Process reset. You can start over.');
+        }
     };
 
     const renderQuestion = () => {
@@ -232,9 +324,44 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
         return null;
     };
 
+    const renderProcessingStatus = () => {
+        if (isCheckingExisting) {
+            return <div className="status-message">Checking for existing data...</div>;
+        }
+        
+        if (hasExistingData && processingStep === "narrative") {
+            return (
+                <div className="existing-data-message">
+                    <p>You have an existing NFT image. Would you like to continue with it or start over?</p>
+                    <div className="button-group">
+                        <button onClick={() => setProcessingStep("image")}>Continue with Existing Image</button>
+                        <button onClick={handleResetProcess}>Start Over</button>
+                    </div>
+                </div>
+            );
+        }
+        
+        return null;
+    };
+
+    // Render notification
+    const renderNotification = () => {
+        if (!notification) return null;
+        
+        return (
+            <div className={`notification ${notification.type}`}>
+                {notification.message}
+                <button className="close-notification" onClick={() => setNotification(null)}>×</button>
+            </div>
+        );
+    };
+
     return (
         <div>
-            {!selectedPath ? (
+            {renderNotification()}
+            {renderProcessingStatus()}
+            
+            {!selectedPath && !hasExistingData ? (
                 <div className="narrative-section">
                     <h3>Choose Your Destiny</h3>
                     <button onClick={() => handlePathSelection("A")}>
@@ -247,7 +374,7 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
                         Path C: Uncover and fight a conspiracy that suppresses artistic freedom
                     </button>
                 </div>
-            ) : !finalNarrative ? (
+            ) : processingStep === "narrative" && !finalNarrative ? (
                 <div className="narrative-section">
                     <h3>You selected Path {selectedPath}</h3>
                     {renderQuestion()}
@@ -273,27 +400,73 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
                 <div className="narrative-section">
                     <h3>Your Final Narrative</h3>
                     <p>{finalNarrative}</p>
-                    {!nftImage ? (
+                    
+                    <div className="process-steps">
+                        <div className={`process-step ${processingStep === "image" ? "active" : processingStep === "metadata" || processingStep === "mint" ? "completed" : ""}`}>
+                            <span className="step-number">1</span>
+                            <span className="step-name">Generate Image</span>
+                        </div>
+                        <div className={`process-step ${processingStep === "metadata" ? "active" : processingStep === "mint" ? "completed" : ""}`}>
+                            <span className="step-number">2</span>
+                            <span className="step-name">Upload to IPFS</span>
+                        </div>
+                        <div className={`process-step ${processingStep === "mint" ? "active" : ""}`}>
+                            <span className="step-number">3</span>
+                            <span className="step-name">Mint NFT</span>
+                        </div>
+                    </div>
+                    
+                    {processingStep === "image" && !nftImage ? (
                         <button 
-                            onClick={handleGenerateImage} 
+                            onClick={() => handleGenerateImage(false)} 
                             disabled={isGeneratingImage}
                             className="generate-image-button"
                         >
                             {isGeneratingImage ? "Generating Image..." : "Generate NFT Image"}
                         </button>
-                    ) : (
+                    ) : nftImage && (
                         <div className="nft-preview">
                             <h4>Your NFT Image</h4>
                             <img src={nftImage} alt="Generated NFT" />
-                            <button 
-                                onClick={() => handleGenerateImage()} 
-                                disabled={isGeneratingImage}
-                                className="regenerate-image-button"
-                            >
-                                {isGeneratingImage ? "Regenerating..." : "Regenerate Image"}
-                            </button>
+                            
+                            {processingStep === "image" && (
+                                <button 
+                                    onClick={() => handleGenerateImage(true)} 
+                                    disabled={isGeneratingImage}
+                                    className="regenerate-image-button"
+                                >
+                                    {isGeneratingImage ? "Regenerating..." : "Regenerate Image"}
+                                </button>
+                            )}
+                            
+                            {processingStep === "metadata" && (
+                                <button 
+                                    onClick={() => handleUploadMetadata(nftImage)}
+                                    className="upload-metadata-button"
+                                >
+                                    Upload to IPFS
+                                </button>
+                            )}
+                            
+                            {processingStep === "mint" && metadataUri && (
+                                <div className="mint-container">
+                                    <p>Your NFT metadata has been uploaded to IPFS!</p>
+                                    <p className="metadata-uri">Metadata URI: {metadataUri}</p>
+                                    <MintNFT 
+                                        metadataUri={metadataUri} 
+                                        narrativePath={selectedPath} 
+                                    />
+                                </div>
+                            )}
                         </div>
                     )}
+                    
+                    <button 
+                        onClick={handleResetProcess}
+                        className="reset-button"
+                    >
+                        Start Over
+                    </button>
                 </div>
             )}
         </div>
