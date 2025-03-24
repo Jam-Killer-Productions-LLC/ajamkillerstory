@@ -173,7 +173,7 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
         try {
             const prompt = buildImagePrompt(finalNarrative);
             const result = await generateImage(prompt, address);
-            if (result.data && result.data.image) {
+            if (result.image) {
                 setNftImage(result.data.image);
             }
         } catch (error) {
