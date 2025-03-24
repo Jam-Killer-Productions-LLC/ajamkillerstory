@@ -90,7 +90,7 @@ const narrativePaths: { [key: string]: Question[] } = {
 
 // Helper function that creates a uniform image prompt based on the final narrative.
 const buildImagePrompt = (narrative: string): string => {
-    return `Create an NFT image for "Don't Kill The Jam - A Jam Killer Storied Collectors NFT". The image should evoke a dystopian, rebellious musical world with neon highlights and gritty, futuristic details. It must reflect the following narrative: "${narrative}". The artwork should have a consistent, bold aesthetic that ties together the themes of artistic resistance and creative energy.`;
+    return `Create an NFT image for "Don't Kill The Jam - A Jam Killer Storied Collectors NFT". The image should evoke a dystopian, rebellious musical world with neon highlights and gritty, futuristic details. It must reflect the following narrative: "${narrative}". The artwork should have a consistent, bold aesthetic that ties together the themes of artistic resistance and creative energy. Negative prompt: avoid bright cheerful colors, cartoonish styles, pastoral scenes, or anything that feels overly optimistic or disconnected from a dystopian vibe.`;
 };
 
 const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalized }) => {
@@ -141,13 +141,9 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
     };
 
     const handleFinalize = async () => {
-        if (!address) {
-            alert("Please connect your wallet.");
-            return;
-        }
         setIsFinalizing(true);
         try {
-            const result = await finalizeNarrative(address);
+            const result = await finalizeNarrative(address as string);
             if (result.data && result.data.narrativeText) {
                 setFinalNarrative(result.data.narrativeText);
                 onNarrativeFinalized({
