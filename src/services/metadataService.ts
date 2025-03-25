@@ -3,15 +3,21 @@
 
 export const uploadMetadata = async (metadata: any, userId: string) => {
     const response = await fetch(
-      "https://dont-kill-the-jammer.fletcher-christians-account3359.workers.dev/upload",
+      "https://metaupload.producerprotocol.pro/upload",
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Accept": "application/json"
+        },
         body: JSON.stringify({ metadata, userId }),
       }
     );
+    
     if (!response.ok) {
-      throw new Error(`Metadata upload failed: ${response.statusText}`);
+      const errorText = await response.text();
+      throw new Error(`Metadata upload failed: ${response.status} - ${errorText}`);
     }
+    
     return response.json();
-  };
+};
