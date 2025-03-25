@@ -37,6 +37,16 @@ export async function finalizeNarrative(userId: string) {
     if (!response.ok) {
       throw new Error(responseData.error || `Failed to finalize narrative: ${response.status}`);
     }
+
+    // Handle the raw response format we're getting from the logs
+    if (responseData.response) {
+      return {
+        data: {
+          narrativeText: responseData.response
+        }
+      };
+    }
+
     return responseData;
   } catch (error) {
     console.error('Error finalizing narrative:', error);
