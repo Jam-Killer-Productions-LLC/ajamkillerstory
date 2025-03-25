@@ -98,7 +98,26 @@ const narrativePaths: { [key: string]: Question[] } = {
 
 // Helper function that creates a uniform image prompt based on the final narrative.
 const buildImagePrompt = (narrative: string): string => {
-    return `Create an NFT image for "Don't Kill The Jam - A Jam Killer Storied Collectors NFT". The image should evoke a dystopian, rebellious musical world with neon highlights and gritty, futuristic details. It must reflect the following narrative: "${narrative}". The artwork should have a consistent, bold aesthetic that ties together the themes of artistic resistance and creative energy. Negative prompt: avoid bright cheerful colors, cartoonish styles, pastoral scenes, or anything that feels overly optimistic or disconnected from a dystopian vibe.`;
+    return `Create a high-quality, professional NFT artwork for "Don't Kill The Jam - A Jam Killer Storied Collectors NFT".
+    Style: Ultra-detailed digital art, 8K resolution, professional lighting, cinematic composition.
+    Technical specifications:
+    - Sharp, clear details with high contrast
+    - Rich, vibrant colors with professional color grading
+    - Dramatic lighting with perfect exposure
+    - Professional composition following rule of thirds
+    - Photorealistic textures and materials
+    
+    Core elements: Musical instruments, performers, stage elements, dynamic lighting effects.
+    Based on narrative: "${narrative}"
+    
+    Negative prompt: blurry, low resolution, pixelated, watermarks, text overlays, distorted proportions, amateur composition, noise, grain, out of focus, poorly lit, oversaturated, washed out.
+    
+    Additional parameters:
+    - Steps: 75
+    - CFG Scale: 8.5
+    - Size: 1024x1024
+    - Sampler: DPM++ 2M Karras
+    - Denoising strength: 0.7`;
 };
 
 const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalized }) => {

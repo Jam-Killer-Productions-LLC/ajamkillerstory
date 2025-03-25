@@ -29,14 +29,19 @@ export async function finalizeNarrative(userId: string) {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      }
+        'Accept': 'application/json',
+        'Origin': window.location.origin
+      },
+      credentials: 'omit'
     });
-    const responseData = await response.json();
-
+    
     if (!response.ok) {
-      throw new Error(responseData.error || `Failed to finalize narrative: ${response.status}`);
+      const errorText = await response.text();
+      throw new Error(`Failed to finalize narrative: ${response.status} - ${errorText}`);
     }
+
+    const responseData = await response.json();
+    console.log('Finalize response:', responseData);
 
     // Handle the raw response format we're getting from the logs
     if (responseData.response) {
@@ -45,6 +50,11 @@ export async function finalizeNarrative(userId: string) {
           narrativeText: responseData.response
         }
       };
+    }
+
+    // If we don't have the expected format, throw an error
+    if (!responseData.data || !responseData.data.narrativeText) {
+      throw new Error('Invalid response format from narrative finalization');
     }
 
     return responseData;
