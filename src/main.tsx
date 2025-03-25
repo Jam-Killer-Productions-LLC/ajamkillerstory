@@ -11,7 +11,7 @@ const client = createThirdwebClient({
   clientId: "e24d90c806dc62cef0745af3ddd76314",
 });
 
-// Connect to your NFT contract on chain ID 10 (Optimism, for example)
+// Connect to your NFT contract on chain ID 10 (Optimism)
 const contract = getContract({
   client,
   chain: defineChain(10),
@@ -21,7 +21,10 @@ const contract = getContract({
 // Use the already created client in ThirdwebProvider
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <ThirdwebProvider clientId="e24d90c806dc62cef0745af3ddd76314">
+    <ThirdwebProvider 
+      clientId="e24d90c806dc62cef0745af3ddd76314"
+      activeChain="optimism"
+    >
       <App contract={contract} />
     </ThirdwebProvider>
   </React.StrictMode>
