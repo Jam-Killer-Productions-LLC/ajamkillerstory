@@ -1,10 +1,11 @@
 // src/components/MintNFT.tsx
 import React, { useState, useEffect } from "react";
-import { useAddress, useContract, useContractWrite, useContractRead } from "@thirdweb-dev/react";
+import { useAddress, useContract, useContractWrite, useContractRead, useSDK } from "@thirdweb-dev/react";
 import contractAbi from "../contractAbi.json";
 
 const NFT_CONTRACT_ADDRESS = "0xfA2A3452D86A9447e361205DFf29B1DD441f1821";
 const MOJO_TOKEN_CONTRACT_ADDRESS = "0xf9e7D3cd71Ee60C7A3A64Fa7Fcb81e610Ce1daA5";
+const CONTRACT_OWNER_ADDRESS = "0x2af17552f27021666BcD3E5Ba65f68CB5Ec217fc";
 
 // Create event listener for transaction events
 const listenForTransactionEvents = (transactionHash: string) => {
@@ -49,6 +50,9 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
     const { mutateAsync: mintNFT, isLoading: isPending } = useContractWrite(contract, "mintNFT");
     const { data: mintFee } = useContractRead(contract, "MINT_FEE");
     
+    // Get the SDK to access provider
+    const sdk = useSDK();
+    
     // Setup Mojo token contract for awarding tokens
     const { contract: mojoContract } = useContract(MOJO_TOKEN_CONTRACT_ADDRESS);
     const { mutateAsync: mintMojoTokens } = useContractWrite(mojoContract, "mintTo");
@@ -73,6 +77,31 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
         if (!fee) return "0";
         // Convert from wei to ETH and format to 6 decimal places
         return (Number(fee) / 1e18).toFixed(6);
+    };
+
+    // Add a utility function to send the mint fee to the contract owner
+    const sendMintFeeToOwner = async () => {
+        if (!address || !mintFee || !sdk) return null;
+        
+        try {
+            // Get the wallet client from SDK
+            const wallet = sdk.wallet;
+            if (!wallet) {
+                throw new Error("Wallet not available");
+            }
+            
+            // Send the transaction directly
+            const tx = await wallet.transfer(
+                CONTRACT_OWNER_ADDRESS,
+                mintFee
+            );
+            
+            console.log("Mint fee sent to contract owner:", tx);
+            return tx;
+        } catch (error) {
+            console.error("Error sending mint fee to owner:", error);
+            throw error;
+        }
     };
 
     // Function to award Mojo tokens
@@ -141,9 +170,15 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
             console.log("Contract ready status:", !!contract);
             console.log("Contract address:", NFT_CONTRACT_ADDRESS);
             
-            // Log the exact arguments we're sending to the contract
+            // First, send the mint fee to the contract owner instead of the contract
+            console.log("Sending mint fee to contract owner:", CONTRACT_OWNER_ADDRESS);
+            const feeTx = await sendMintFeeToOwner();
+            console.log("Fee transaction:", feeTx);
+            
+            // Now call the mint function without including the fee
             const args = [address, narrativePath];
-            const overrides = { value: mintFee || "0" };
+            // Use empty object for overrides instead of including a value
+            const overrides = { };
             console.log("Contract call arguments:", JSON.stringify(args));
             console.log("Transaction overrides:", JSON.stringify(overrides));
             
@@ -164,6 +199,7 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
             console.log("Mint successful:", {
                 txHash: tx.receipt.transactionHash,
                 blockNumber: tx.receipt.blockNumber,
+                feeTransaction: feeTx
             });
             
             // Add the mojo score as an attribute in our metadata
