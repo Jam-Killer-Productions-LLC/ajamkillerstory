@@ -22,6 +22,12 @@ export const checkExistingImage = async (userId: string): Promise<GenerateImageR
 
     console.log(`Check existing image response status: ${response.status}`);
     
+    // If we get a 500 error, it might be from the worker storage issue
+    if (response.status === 500) {
+      console.log('Worker returned 500 error - likely a storage initialization issue');
+      return null;
+    }
+    
     if (!response.ok) {
       if (response.status === 404) {
         // No existing image found, which is fine
@@ -36,6 +42,7 @@ export const checkExistingImage = async (userId: string): Promise<GenerateImageR
     return data as GenerateImageResponse;
   } catch (error) {
     console.error('Error checking existing image:', error);
+    // Don't throw the error, just return null to indicate no valid image found
     return null;
   }
 };
@@ -104,7 +111,7 @@ export const generateImage = async (prompt: string, userId: string, forceNew = f
   return data as GenerateImageResponse;
 };
 
-// Enhanced version with retry logic
+// Enhanced version with retry logic and timeout
 export const generateImageWithRetry = async (
   prompt: string, 
   userId: string, 
@@ -113,19 +120,50 @@ export const generateImageWithRetry = async (
 ): Promise<GenerateImageResponse> => {
   let lastError: Error | null = null;
   
+  // For each attempt
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       console.log(`Attempt ${attempt} of ${maxRetries} to generate image`);
-      const result = await generateImage(prompt, userId, forceNew);
+      
+      // First delete existing if forcing new
+      if (forceNew && attempt === 1) {
+        console.log("Forcing new image, attempting to delete existing");
+        try {
+          await deleteExistingImage(userId);
+        } catch (deleteErr) {
+          console.warn("Failed to delete existing image, but continuing:", deleteErr);
+        }
+      }
+      
+      // Set up a timeout promise
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => {
+          reject(new Error(`Image generation timed out after 60 seconds on attempt ${attempt}`));
+        }, 60000); // 60 second timeout
+      });
+      
+      // Race the actual generate call with the timeout
+      const result = await Promise.race([
+        generateImage(prompt, userId, false), // Don't force delete here since we already did it above if needed
+        timeoutPromise
+      ]);
+      
       return result;
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
       lastError = error instanceof Error ? error : new Error(String(error));
-      console.error(`Attempt ${attempt} failed:`, lastError.message);
+      console.error(`Attempt ${attempt} failed:`, errorMessage);
+      
+      // Special handling for specific errors
+      if (errorMessage.includes("Cannot read properties of undefined") || 
+          errorMessage.includes("Invalid AI response")) {
+        console.log("Detected worker storage or AI response issue - will retry with delay");
+      }
       
       if (attempt < maxRetries) {
         // Wait before retrying (exponential backoff)
-        const delay = Math.min(1000 * Math.pow(2, attempt - 1), 10000);
-        console.log(`Waiting ${delay}ms before retry...`);
+        const delay = Math.min(1000 * Math.pow(2, attempt), 15000); // Maximum 15 seconds
+        console.log(`Waiting ${delay}ms before retry ${attempt + 1}...`);
         await new Promise(resolve => setTimeout(resolve, delay));
       }
     }

@@ -348,10 +348,12 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
             const prompt = buildImagePrompt(finalNarrative);
             console.log("Generating image with prompt length:", prompt.length);
             
-            // Try to get an existing image first unless forceNew is true
+            // If we're not forcing a new image, try to get an existing one first
+            let existingImage = null;
             if (!forceNew) {
                 try {
-                    const existingImage = await checkExistingImage(address);
+                    console.log("Checking for existing image...");
+                    existingImage = await checkExistingImage(address);
                     if (existingImage && existingImage.image) {
                         console.log("Found existing image, using it");
                         setNftImage(existingImage.image);
@@ -359,22 +361,30 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
                         showNotification('success', 'Using your existing NFT image. Ready to upload to IPFS.');
                         setIsGeneratingImage(false);
                         return;
+                    } else {
+                        console.log("No valid existing image found, generating new one");
                     }
                 } catch (err) {
-                    console.log("No existing image found, will generate new one");
+                    console.error("Error checking for existing image:", err);
+                    console.log("Proceeding with new image generation");
                 }
+            } else {
+                console.log("Force new image requested, skipping existing image check");
             }
             
-            // If we're here, we need to generate a new image
+            // If we got here, we need to generate a new image
+            console.log("Generating new image using retry logic");
             const result = await generateImageWithRetry(prompt, address, forceNew, 3);
-            if (result.image) {
+            if (result && result.image) {
                 setNftImage(result.image);
                 setProcessingStep("metadata");
                 showNotification('success', 'Image generated successfully! Ready to upload to IPFS.');
+            } else {
+                throw new Error("Image generation failed - no valid image returned");
             }
         } catch (error) {
             console.error("Error generating image:", error);
-            showNotification('error', 'Error generating image. Please try again.');
+            showNotification('error', 'Error generating image. Please try again or reset your process and start over.');
             setProcessingStep("image");
         }
         setIsGeneratingImage(false);
