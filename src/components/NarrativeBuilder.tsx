@@ -30,68 +30,68 @@ interface Notification {
 const narrativePaths: { [key: string]: Question[] } = {
     A: [
         {
-            prompt: "What is the name of your band?",
-            placeholder: "Enter your band's name...",
+            prompt: "What is the name of your underground band fighting musical suppression?",
+            placeholder: "Create a memorable, rebellious band name that captures your essence...",
         },
         {
-            prompt: "Which genre defines your band's sound?",
-            placeholder: "Describe your band's unique sound...",
+            prompt: "What forbidden music genres does your band blend to create your unique sound?",
+            placeholder: "Describe your revolutionary sound that challenges the musical status quo...",
         },
         {
-            prompt: "Where do you host your secret gigs?",
-            placeholder: "Describe your secret performance venue...",
+            prompt: "Describe the hidden venue where your most legendary performances happen.",
+            placeholder: "Paint a vivid picture of your secret performance space - its atmosphere, location, unique features...",
         },
         {
-            prompt: "How do you keep your gigs secret from the suppressors?",
-            placeholder: "Describe your security measures...",
+            prompt: "What ingenious methods do you use to avoid detection by music suppressors?",
+            placeholder: "Detail your band's creative security measures, codes, or technologies...",
         },
         {
-            prompt: "What is your band's message in this dystopian world?",
-            placeholder: "Share your band's mission and message...",
+            prompt: "What powerful message does your music broadcast to this dystopian world?",
+            placeholder: "Describe your band's rebellious manifesto and how it inspires underground resistance...",
         },
     ],
     B: [
         {
-            prompt: "What is your stage name?",
-            placeholder: "Enter your stage name...",
+            prompt: "What enigmatic stage name have you chosen for your solo resistance act?",
+            placeholder: "Create a mysterious yet meaningful alias that represents your artistic rebellion...",
         },
         {
-            prompt: "Which music style best defines your solo act?",
-            placeholder: "Describe your unique musical style...",
+            prompt: "What innovative fusion of musical styles defines your revolutionary sound?",
+            placeholder: "Describe how you blend genres to create something the world has never heard before...",
         },
         {
-            prompt: "How do you incorporate AI in your composition?",
-            placeholder: "Explain your AI music creation process...",
+            prompt: "How do you secretly use banned AI technology to enhance your compositions?",
+            placeholder: "Detail your groundbreaking techniques for merging human creativity with forbidden AI...",
         },
         {
-            prompt: "Where do you perform your secret sets?",
-            placeholder: "Describe your performance space...",
+            prompt: "Describe the hidden sanctuary where you perform your most transformative sets.",
+            placeholder: "Paint a vivid picture of this secret space - its atmosphere, audience, unique features...",
         },
         {
-            prompt: "What message do you convey through your music?",
-            placeholder: "Share your musical message...",
+            prompt: "What subversive message do you encode in your music to awaken the masses?",
+            placeholder: "Explain the hidden meanings in your compositions and how they inspire resistance...",
         },
     ],
     C: [
         {
-            prompt: "What is your main objective?",
-            placeholder: "Describe your mission...",
+            prompt: "What critical truth about music suppression are you determined to expose?",
+            placeholder: "Describe the conspiracy you're unveiling and why it matters to humanity...",
         },
         {
-            prompt: "Who do you suspect is behind the suppression?",
-            placeholder: "Share your suspicions...",
+            prompt: "Who or what powerful entity do you believe orchestrates the musical suppression?",
+            placeholder: "Detail your prime suspects and the evidence pointing to their involvement...",
         },
         {
-            prompt: "What is your method of gathering evidence?",
-            placeholder: "Explain your investigation methods...",
+            prompt: "What dangerous methods are you using to gather evidence against the suppressors?",
+            placeholder: "Describe your investigation techniques, technologies, and the risks you're taking...",
         },
         {
-            prompt: "How do you plan to distribute your findings?",
-            placeholder: "Describe your distribution strategy...",
+            prompt: "What ingenious system have you developed to broadcast your findings worldwide?",
+            placeholder: "Explain your distribution network that can evade censorship and reach the masses...",
         },
         {
-            prompt: "What is your final act of defiance?",
-            placeholder: "Describe your ultimate plan...",
+            prompt: "Describe your ultimate act of rebellion that will change music forever.",
+            placeholder: "Paint a vivid picture of your final, dramatic move against the suppressors...",
         },
     ],
 };
