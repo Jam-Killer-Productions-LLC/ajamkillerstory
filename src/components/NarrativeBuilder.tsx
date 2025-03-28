@@ -137,6 +137,19 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
     const [hasExistingData, setHasExistingData] = useState<boolean>(false);
     const [notification, setNotification] = useState<Notification | null>(null);
 
+    // Add clearNarrativeData function
+    const clearNarrativeData = async () => {
+        if (!address) return;
+        try {
+            // Clear narrative data by sending an empty update
+            await updateNarrative(address, "");
+            showNotification('info', 'Previous narrative data cleared.');
+        } catch (error) {
+            console.error("Error clearing narrative data:", error);
+            showNotification('error', 'Error clearing previous data. Please try again.');
+        }
+    };
+
     // Function to show notifications
     const showNotification = (type: 'success' | 'error' | 'info', message: string) => {
         setNotification({ type, message });
@@ -167,7 +180,15 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
         checkForExistingData();
     }, [address]);
 
-    const handlePathSelection = (path: string) => {
+    const handlePathSelection = async (path: string) => {
+        if (!address) {
+            showNotification('error', 'Please connect your wallet.');
+            return;
+        }
+        
+        // Clear existing narrative data before setting new path
+        await clearNarrativeData();
+        
         setSelectedPath(path);
         setCurrentQuestionIndex(0);
         setAllAnswers([]);
@@ -176,6 +197,7 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
         setCurrentAnswer("");
         setMetadataUri("");
         setProcessingStep("narrative");
+        setHasExistingData(false);
     };
 
     const handleAnswerSubmit = async () => {
@@ -270,7 +292,7 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
             const metadata = {
                 name: "Don't Kill The Jam NFT",
                 description: finalNarrative,
-                image: imageData,
+                image: imageData, // Use the image data directly as it already has the correct prefix
                 attributes: [
                     {
                         trait_type: "Path",
@@ -302,8 +324,16 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
         }
     };
 
-    const handleResetProcess = () => {
+    const handleResetProcess = async () => {
+        if (!address) {
+            showNotification('error', 'Please connect your wallet.');
+            return;
+        }
+
         if (window.confirm("This will reset your current progress. Continue?")) {
+            // Clear existing narrative data before resetting state
+            await clearNarrativeData();
+            
             setSelectedPath("");
             setCurrentQuestionIndex(0);
             setAllAnswers([]);
