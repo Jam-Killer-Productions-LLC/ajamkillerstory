@@ -118,6 +118,19 @@ const buildImagePrompt = (narrative: string): string => {
     Negative prompt: dark, gloomy, dystopian, realistic, serious, professional, corporate, formal, traditional, classical.`;
 };
 
+// Helper function to calculate the Mojo Score
+const calculateMojoScore = (path: string): number => {
+    // Base score for each path
+    switch(path) {
+        case "A": return 8000;
+        case "B": return 7500;
+        case "C": return 8500;
+        default: return 5000;
+    }
+    // In a real implementation, you might want to factor in other elements 
+    // like narrative length, question responses, etc.
+};
+
 const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalized }) => {
     const address = useAddress();
     const [selectedPath, setSelectedPath] = useState<string>("");
@@ -397,6 +410,10 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
         showNotification('info', 'Uploading metadata to IPFS...');
         
         try {
+            // Calculate mojo score based on path
+            const mojoScore = calculateMojoScore(selectedPath);
+            console.log(`Adding Mojo Score: ${mojoScore} to metadata`);
+            
             const metadata = {
                 name: "Don't Kill The Jam NFT",
                 description: finalNarrative,
@@ -405,6 +422,10 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
                     {
                         trait_type: "Path",
                         value: selectedPath
+                    },
+                    {
+                        trait_type: "Mojo Score",
+                        value: mojoScore
                     }
                 ]
             };

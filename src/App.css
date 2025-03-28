@@ -927,3 +927,55 @@ p, h2, h3, h4, .path-title, .path-description, .step-name, button, .wallet-addre
   text-align: left;
   white-space: pre-wrap;
 }
+
+/* Mojo Score styles */
+.mojo-score {
+  font-weight: bold;
+  color: #ff9800;
+  background: linear-gradient(135deg, #ff9800, #ff5722);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  padding: 0 3px;
+  font-size: 1.2em;
+}
+
+.mojo-score-preview {
+  background-color: rgba(0, 0, 0, 0.4);
+  padding: 1rem;
+  border-radius: var(--border-radius);
+  margin: 1rem 0;
+  border: 1px solid rgba(255, 152, 0, 0.3);
+  animation: glow 2s infinite alternate;
+}
+
+@keyframes glow {
+  from {
+    box-shadow: 0 0 5px rgba(255, 152, 0, 0.2);
+  }
+  to {
+    box-shadow: 0 0 15px rgba(255, 152, 0, 0.5);
+  }
+}
+
+.mojo-description {
+  font-size: 0.9em;
+  opacity: 0.8;
+}
+
+/* Token award status styles */
+.token-award-status {
+  margin-top: 1rem;
+  padding: 0.8rem;
+  border-radius: var(--border-radius);
+  background-color: rgba(0, 0, 0, 0.3);
+  border-left: 3px solid #4CAF50;
+}
+
+.token-award-status.success {
+  border-left-color: #4CAF50;
+}
+
+.token-award-status.error {
+  border-left-color: #f44336;
+}
