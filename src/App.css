@@ -197,7 +197,7 @@ html {
   text-shadow: 0 0 10px rgba(76, 175, 80, 0.3);
 }
 
-/* Main content */
+/* Main content area - now handled by Layout component */
 .main-content {
   width: 100%;
   max-width: 1200px;
@@ -208,10 +208,11 @@ html {
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
 }
 
 .main-content:hover {
-  transform: translateY(-5px);
+  transform: none; /* Remove hover animation from main container */
   border-color: rgba(255, 255, 255, 0.15);
 }
 
@@ -337,16 +338,18 @@ li:hover {
   box-shadow: var(--shadow-sm);
 }
 
-/* Narrative section */
+/* Narrative section - child of main-content */
 .narrative-section {
   width: 100%;
   max-width: 800px;
   margin: 0 auto;
   padding: 2rem;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
 .narrative-section:hover {
   transform: translateY(-3px);
+  box-shadow: var(--shadow-lg);
 }
 
 .narrative-section h3,
@@ -895,4 +898,16 @@ li:hover {
 /* Add text shadow for better readability over background images */
 p, h2, h3, h4, .path-title, .path-description, .step-name, button, .wallet-address {
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+/* Connection prompt styling */
+.connect-prompt {
+  padding: 2rem;
+  text-align: center;
+  background-color: var(--card-bg);
+  border-radius: var(--border-radius);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  animation: fadeIn 0.5s ease-in-out;
 }
