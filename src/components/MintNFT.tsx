@@ -106,31 +106,33 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
 
     // Function to award Mojo tokens
     const awardMojoTokens = async () => {
-        if (!address || !mojoContract) return;
+        if (!address) return;
         
         try {
             setTokenAwardStatus("pending");
             
-            // Calculate token amount based on mojoScore
-            // The score is out of a possible 10,000 maximum
-            // Convert to tokens with 18 decimals (standard for ERC20)
-            const tokenAmount = mojoScore.toString() + "000000000000000000"; // mojoScore * 10^18
-            
-            console.log(`Awarding ${mojoScore} Mojo tokens to ${address} based on Mojo Score`);
-            
-            // Call the mintTo function on the Mojo token contract using thirdweb
-            const tx = await mintMojoTokens({ 
-                args: [address, tokenAmount]
+            const response = await fetch("https://your-worker-url.workers.dev", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ 
+                    address: address,
+                    mojoScore: mojoScore 
+                }),
             });
             
-            console.log("Mojo token award transaction:", tx);
+            const result = await response.json();
             
-            setTokenTxHash(tx.receipt.transactionHash);
-            setTokenAwardStatus("success");
+            if (result.success) {
+                setTokenTxHash(result.txHash);
+                setTokenAwardStatus("success");
+            } else {
+                throw new Error(result.error || "Failed to award tokens");
+            }
             
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error("Error awarding Mojo tokens:", error);
-            setErrorMessage(`Error awarding Mojo tokens: ${error.message}`);
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+            setErrorMessage(`Error awarding Mojo tokens: ${errorMessage}`);
             setTokenAwardStatus("error");
         }
     };
