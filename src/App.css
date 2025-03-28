@@ -14,7 +14,7 @@ html, body {
   --text-color: #ffffff;
   --background-color: #000000;
   --background-overlay: rgba(0, 0, 0, 0.7);
-  --card-bg: rgba(15, 15, 15, 0.75);
+  --card-bg: rgba(15, 15, 15, 0.65);
   --transition-speed: 0.3s;
   --border-radius: 12px;
   --shadow-sm: 0 4px 6px rgba(0, 0, 0, 0.1);
@@ -46,6 +46,11 @@ html {
   padding: 1rem;
   box-sizing: border-box;
   background: radial-gradient(circle at center, #111111 0%, #000000 100%);
+  background-image: url("https://bafybeihgwbq34za7v64kkdadmfoxeoglqllj4nj2oqp2wjwfgtlmhmhtne.ipfs.dweb.link?filename=16x9backgrounddktj.jpeg");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
 }
 
 /* Header styles */
@@ -863,4 +868,16 @@ li:hover {
   .step-name {
     font-size: 0.75rem;
   }
+}
+
+/* Media query for mobile/portrait orientation */
+@media (max-width: 768px), (orientation: portrait) {
+  .app-container {
+    background-image: url("https://bafybeihk575tnym2hpgrzwyiapdbrce32kehmf6tio73xlgmcjuqkpq5u4.ipfs.dweb.link?filename=9x16backgrounddktj.jpeg");
+  }
+}
+
+/* Add text shadow for better readability over background images */
+p, h2, h3, h4, .path-title, .path-description, .step-name, button, .wallet-address {
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
 }
