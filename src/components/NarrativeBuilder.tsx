@@ -141,8 +141,8 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
     const clearNarrativeData = async () => {
         if (!address) return;
         try {
-            // Clear narrative data by sending an empty update
-            await updateNarrative(address, "");
+            // Send the CLEAR_NARRATIVE command
+            await updateNarrative(address, "CLEAR_NARRATIVE");
             showNotification('info', 'Previous narrative data cleared.');
         } catch (error) {
             console.error("Error clearing narrative data:", error);
