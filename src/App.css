@@ -911,3 +911,19 @@ p, h2, h3, h4, .path-title, .path-description, .step-name, button, .wallet-addre
   backdrop-filter: blur(10px);
   animation: fadeIn 0.5s ease-in-out;
 }
+
+/* Error details styling */
+.error-details {
+  background-color: rgba(0, 0, 0, 0.4);
+  padding: 0.8rem;
+  border-radius: var(--border-radius);
+  font-family: monospace;
+  word-break: break-all;
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+  border-left: 3px solid #f44336;
+  max-height: 120px;
+  overflow-y: auto;
+  text-align: left;
+  white-space: pre-wrap;
+}

@@ -19,6 +19,7 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
     const { data: mintFee } = useContractRead(contract, "MINT_FEE");
     const [mintStatus, setMintStatus] = useState<"idle" | "pending" | "success" | "error">("idle");
     const [txHash, setTxHash] = useState<string>("");
+    const [errorMessage, setErrorMessage] = useState<string>("");
 
     const formatMintFee = (fee: any) => {
         if (!fee) return "0";
@@ -44,17 +45,25 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
 
         setMintStatus("pending");
         try {
-            // Call mintNFT with the correct parameters and include the mint fee
+            console.log("Minting with:", {
+                address,
+                narrativePath,
+                metadataUri,
+                mintFee: mintFee?.toString() || "0"
+            });
+            
+            // Call mintNFT with the correct parameters including the metadataUri
             const tx = await mintNFT({
-                args: [address, narrativePath],
+                args: [address, metadataUri, narrativePath],
                 overrides: {
                     value: mintFee || "0" // Include the mint fee in the transaction
                 }
             });
             setTxHash(tx.receipt.transactionHash);
             setMintStatus("success");
-        } catch (error) {
+        } catch (error: any) {
             console.error("Minting error:", error);
+            setErrorMessage(error.message || "Unknown error occurred");
             setMintStatus("error");
         }
     };
@@ -78,7 +87,12 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
                     </div>
                 );
             case "error":
-                return <div className="mint-status error">Minting failed. Please try again.</div>;
+                return (
+                    <div className="mint-status error">
+                        <p>Minting failed. Please try again.</p>
+                        {errorMessage && <p className="error-details">{errorMessage}</p>}
+                    </div>
+                );
             default:
                 return null;
         }
