@@ -3,6 +3,8 @@ const WORKER_URL = 'https://narratives.producerprotocol.pro';
 
 export async function updateNarrative(userId: string, answer: string) {
   try {
+    console.log(`Updating narrative for ${userId} with answer: "${answer}"`);
+    
     const response = await fetch(`${WORKER_URL}/narrative/update/${userId}`, {
       method: 'POST',
       headers: { 
@@ -11,11 +13,23 @@ export async function updateNarrative(userId: string, answer: string) {
       },
       body: JSON.stringify({ answer }),
     });
-    const responseData = await response.json();
+    
+    // For debugging
+    const responseText = await response.text();
+    let responseData;
+    
+    try {
+      responseData = JSON.parse(responseText);
+    } catch (parseError) {
+      console.error('Failed to parse response as JSON:', responseText);
+      throw new Error(`Invalid JSON response: ${responseText}`);
+    }
 
     if (!response.ok) {
-      throw new Error(responseData.error || `Failed to update narrative: ${response.status}`);
+      console.error('Server returned error:', response.status, responseData);
+      throw new Error(responseData.error || `Failed to update narrative: ${response.status} - ${responseText}`);
     }
+    
     return responseData;
   } catch (error) {
     console.error('Error updating narrative:', error);
@@ -25,6 +39,8 @@ export async function updateNarrative(userId: string, answer: string) {
 
 export async function finalizeNarrative(userId: string) {
   try {
+    console.log(`Finalizing narrative for ${userId}`);
+    
     const response = await fetch(`${WORKER_URL}/narrative/finalize/${userId}`, {
       method: 'POST',
       headers: { 
@@ -35,12 +51,22 @@ export async function finalizeNarrative(userId: string) {
       credentials: 'omit'
     });
     
+    // For debugging
+    const responseText = await response.text();
+    
     if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Failed to finalize narrative: ${response.status} - ${errorText}`);
+      console.error('Finalize narrative error:', response.status, responseText);
+      throw new Error(`Failed to finalize narrative: ${response.status} - ${responseText}`);
     }
 
-    const responseData = await response.json();
+    let responseData;
+    try {
+      responseData = JSON.parse(responseText);
+    } catch (parseError) {
+      console.error('Failed to parse finalize response as JSON:', responseText);
+      throw new Error(`Invalid JSON response from finalize: ${responseText}`);
+    }
+    
     console.log('Finalize response:', responseData);
 
     // Handle the raw response format we're getting from the logs
@@ -54,6 +80,7 @@ export async function finalizeNarrative(userId: string) {
 
     // If we don't have the expected format, throw an error
     if (!responseData.data || !responseData.data.narrativeText) {
+      console.error('Invalid narrative format:', responseData);
       throw new Error('Invalid response format from narrative finalization');
     }
 

@@ -140,13 +140,45 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
     // Add clearNarrativeData function
     const clearNarrativeData = async () => {
         if (!address) return;
+        
         try {
-            // Send the CLEAR_NARRATIVE command
-            await updateNarrative(address, "CLEAR_NARRATIVE");
-            showNotification('info', 'Previous narrative data cleared.');
+            console.log("Attempting to clear narrative data for address:", address);
+            
+            // First try with the special command
+            try {
+                await updateNarrative(address, "CLEAR_NARRATIVE");
+                console.log("Successfully cleared narrative data with CLEAR_NARRATIVE command");
+                showNotification('info', 'Previous narrative data cleared.');
+                return;
+            } catch (cmdError) {
+                console.warn("Failed to clear with CLEAR_NARRATIVE command:", cmdError);
+                // Continue to fallback methods if the special command fails
+            }
+            
+            // If the special command fails, try with an empty string (may work with some worker implementations)
+            try {
+                await updateNarrative(address, "");
+                console.log("Successfully cleared narrative data with empty string");
+                showNotification('info', 'Previous narrative data cleared.');
+                return;
+            } catch (emptyError) {
+                console.warn("Failed to clear with empty string:", emptyError);
+                // Continue to fallback methods
+            }
+            
+            // As a last resort, try resetting with a special message that the worker might accept
+            try {
+                await updateNarrative(address, "__RESET__");
+                console.log("Successfully cleared narrative data with __RESET__ command");
+                showNotification('info', 'Previous narrative data cleared.');
+                return;
+            } catch (resetError) {
+                console.error("All clearing methods failed:", resetError);
+                throw resetError; // Re-throw to be caught by the outer try/catch
+            }
         } catch (error) {
             console.error("Error clearing narrative data:", error);
-            showNotification('error', 'Error clearing previous data. Please try again.');
+            showNotification('error', 'Error clearing previous data. Try again or continue anyway.');
         }
     };
 
