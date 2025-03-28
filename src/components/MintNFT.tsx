@@ -186,13 +186,39 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
             
             // Now call the finalizeNFT function with the proper parameters
             // finalizeNFT(address to, string finalURI, string path)
-            const args = [address, metadataUri, narrativePath];
-            console.log("Contract call arguments:", JSON.stringify(args));
+            console.log("Raw values before formatting:", {
+                addressType: typeof address,
+                address: address,
+                metadataUriType: typeof metadataUri,
+                metadataUri: metadataUri,
+                narrativePathType: typeof narrativePath,
+                narrativePath: narrativePath
+            });
+            
+            console.log("Formatted arguments:", [
+                address, 
+                String(metadataUri), // Ensure it's a string
+                String(narrativePath) // Ensure it's a string
+            ]);
+            console.log("Types after formatting:", {
+                arg0Type: typeof address,
+                arg1Type: typeof metadataUri,
+                arg2Type: typeof narrativePath
+            });
+            
+            console.log("Contract call arguments JSON:", JSON.stringify([
+                address, 
+                String(metadataUri), // Ensure it's a string
+                String(narrativePath) // Ensure it's a string
+            ]));
             
             // Execute the transaction with finalizeNFT 
-            const tx = await finalizeNFT({
-                args: args,
-                // No value needed since we sent it separately
+            const tx = await finalizeNFT({ 
+                args: [
+                    address, 
+                    String(metadataUri), // Ensure it's a string
+                    String(narrativePath) // Ensure it's a string
+                ],
                 overrides: {}
             });
             
@@ -218,7 +244,22 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
             
         } catch (error: any) {
             console.error("Minting error:", error);
-            console.error("Error details:", JSON.stringify(error, null, 2));
+            
+            // Improve error logging with better formatting
+            try {
+                // Try to stringify the error object for better debugging
+                const errorDetails = JSON.stringify(error, (key, value) => {
+                    // Handle circular references
+                    if (key === 'cause' && value === error) {
+                        return '[Circular Reference]';
+                    }
+                    return value;
+                }, 2);
+                console.error("Structured error details:", errorDetails);
+            } catch (stringifyError) {
+                console.error("Error stringifying error object:", stringifyError);
+                console.error("Raw error object:", error);
+            }
             
             // Extract more detailed error information if available
             const errorCode = error.code;
@@ -235,6 +276,10 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
                 errorMsg = "Transaction was rejected in your wallet.";
             } else if (errorMsg.toLowerCase().includes("revert")) {
                 errorMsg = `Transaction reverted by the contract. Possible reasons: already minted, contract paused, or invalid parameters. Details: ${errorMsg}`;
+            } else if (error.cause && error.cause.issues) {
+                // Handle validation errors
+                const issues = error.cause.issues;
+                errorMsg = `Validation error: ${JSON.stringify(issues)}`;
             }
             
             setErrorMessage(errorMsg);
