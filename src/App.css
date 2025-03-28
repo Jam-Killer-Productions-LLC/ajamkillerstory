@@ -15,6 +15,10 @@ html, body {
   --background-color: #000000;
   --background-overlay: rgba(0, 0, 0, 0.7);
   --card-bg: rgba(15, 15, 15, 0.65);
+  --card-bg-color: rgba(15, 15, 15, 0.65);
+  --card-border: 1px solid rgba(255, 255, 255, 0.1);
+  --card-hover-border: 1px solid rgba(255, 255, 255, 0.2);
+  --card-transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
   --transition-speed: 0.3s;
   --border-radius: 12px;
   --shadow-sm: 0 4px 6px rgba(0, 0, 0, 0.1);
@@ -51,6 +55,57 @@ html {
   background-position: center;
   background-repeat: no-repeat;
   background-attachment: fixed;
+  overflow-x: hidden;
+  overflow-y: auto;
+  position: relative;
+  max-width: 100%;
+}
+
+/* Standardized card style */
+.card-style {
+  background-color: var(--card-bg);
+  border-radius: var(--border-radius);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  box-shadow: var(--shadow-md);
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.card-style:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+  box-shadow: var(--shadow-lg);
+}
+
+/* Apply standardized card style to all card-like elements */
+.wallet-info,
+.main-content,
+.narrative-section,
+.path-button,
+.nft-preview,
+.mint-container,
+.metadata-uri,
+.notification,
+.status-message,
+.existing-data-message,
+.mint-status {
+  background-color: var(--card-bg);
+  border-radius: var(--border-radius);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  box-shadow: var(--shadow-md);
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.wallet-info:hover,
+.main-content:hover,
+.narrative-section:hover,
+.path-button:hover,
+.nft-preview:hover,
+.mint-container:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+  box-shadow: var(--shadow-lg);
 }
 
 /* Header styles */
@@ -131,19 +186,7 @@ html {
 }
 
 .wallet-info {
-  background-color: var(--card-bg);
   padding: 0.8rem 1.5rem;
-  border-radius: var(--border-radius);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
-  box-shadow: var(--shadow-md);
-  transition: all 0.3s ease;
-}
-
-.wallet-info:hover {
-  border-color: rgba(255, 255, 255, 0.2);
-  box-shadow: var(--shadow-lg);
 }
 
 .wallet-address {
@@ -162,22 +205,14 @@ html {
   padding: 1.5rem;
   color: var(--text-color);
   text-align: center;
-  background-color: var(--card-bg);
-  border-radius: var(--border-radius);
   display: flex;
   flex-direction: column;
   align-items: center;
-  -webkit-backdrop-filter: blur(15px);
-  backdrop-filter: blur(15px);
-  box-shadow: var(--shadow-lg);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  transition: all 0.4s cubic-bezier(0.19, 1, 0.22, 1);
 }
 
 .main-content:hover {
   transform: translateY(-5px);
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
-  border-color: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.15);
 }
 
 /* Typography */
@@ -308,18 +343,10 @@ li:hover {
   max-width: 800px;
   margin: 0 auto;
   padding: 2rem;
-  background-color: var(--card-bg);
-  border-radius: var(--border-radius);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  -webkit-backdrop-filter: blur(15px);
-  backdrop-filter: blur(15px);
-  box-shadow: var(--shadow-md);
-  transition: all 0.4s cubic-bezier(0.19, 1, 0.22, 1);
 }
 
 .narrative-section:hover {
-  box-shadow: var(--shadow-lg);
-  border-color: rgba(255, 255, 255, 0.1);
+  transform: translateY(-3px);
 }
 
 .narrative-section h3,
@@ -406,18 +433,11 @@ li:hover {
 .path-button {
   width: 100%;
   padding: 1.5rem;
-  background-color: var(--card-bg);
-  border: 2px solid rgba(255, 255, 255, 0.05);
-  border-radius: var(--border-radius);
-  cursor: pointer;
-  transition: all 0.4s cubic-bezier(0.19, 1, 0.22, 1);
   text-align: left;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
-  box-shadow: var(--shadow-md);
+  cursor: pointer;
 }
 
 .path-button:hover {
@@ -454,6 +474,7 @@ li:hover {
   margin-top: 1.5rem;
   width: 100%;
   max-width: 500px;
+  padding: 1.5rem;
 }
 
 .nft-preview img {
@@ -629,7 +650,6 @@ li:hover {
   top: 20px;
   right: 20px;
   padding: 15px 20px;
-  border-radius: var(--border-radius);
   color: white;
   z-index: 1000;
   animation: slideIn 0.4s cubic-bezier(0.19, 1, 0.22, 1);
@@ -638,10 +658,6 @@ li:hover {
   justify-content: space-between;
   min-width: 250px;
   max-width: 350px;
-  box-shadow: var(--shadow-lg);
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .notification.success {
@@ -795,27 +811,34 @@ li:hover {
 
 /* Media Queries */
 @media (max-width: 768px) {
-  .header-image {
-    max-width: 90%;
+  .app-container {
+    padding: 0.5rem;
   }
   
-  .narrative-section {
-    margin: 0.5rem;
+  .main-content, 
+  .narrative-section,
+  .nft-preview,
+  .mint-container {
+    width: calc(100% - 2rem);
+    max-width: 100%;
+    padding: 1.2rem;
+    margin: 0.5rem auto;
+  }
+  
+  .path-button {
     padding: 1.2rem;
   }
   
-  .narrative-section textarea {
-    min-height: 80px;
-  }
-  
-  .nft-preview img {
-    max-height: 250px;
+  .metadata-uri {
+    max-width: 100%;
+    overflow-wrap: break-word;
   }
   
   .notification {
     left: 20px;
     right: 20px;
     top: 10px;
+    max-width: calc(100% - 40px);
   }
   
   .button-group {
@@ -826,30 +849,22 @@ li:hover {
   .path-selection {
     gap: 0.8rem;
   }
-  
-  .path-button {
-    padding: 1.2rem;
-  }
 }
 
 @media (max-width: 480px) {
   .app-container {
-    padding: 0.5rem;
+    padding: 0.25rem;
   }
-
-  .header {
-    padding: 0.5rem;
-  }
-
-  .main-content {
+  
+  .main-content,
+  .narrative-section,
+  .nft-preview,
+  .mint-container {
+    width: calc(100% - 1rem);
     padding: 1rem;
-    margin: 0.5rem auto;
+    margin: 0.25rem auto;
   }
-
-  .narrative-section {
-    padding: 1rem;
-  }
-
+  
   .path-button {
     padding: 1rem;
   }
