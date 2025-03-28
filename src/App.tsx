@@ -20,7 +20,7 @@ function App({ contract }: AppProps) {
     <div className="app-container">
       <header className="header">
         <img 
-          src="https://bafybeiddum77flw2fi5roohkckknerriibbfziraxvt5y723fp6r6fqvfe.ipfs.dweb.link?filename=Don't%20Kill%20the%20Jam%20Girls%20with%20Text.png" 
+          src="https://bafybeia4ayg7qsaryrzk7ntixd4ombsevup74vyxcyat3v5ph2xu6yx2le.ipfs.dweb.link?filename=dktjlogo.png" 
           alt="Jam Killer Logo" 
           className="logo"
         />
