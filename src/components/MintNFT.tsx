@@ -48,22 +48,43 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
             console.log("Minting with:", {
                 address,
                 narrativePath,
-                metadataUri,
+                metadataUri: metadataUri, // Logging for debugging, but not passing to contract directly
                 mintFee: mintFee?.toString() || "0"
             });
             
-            // Call mintNFT with the correct parameters including the metadataUri
+            // The contract's mintNFT function only expects the recipient address and path
+            // The metadata URI is stored in the worker but not passed directly to the contract
+            // When minting, the contract simply creates a token with the specified path
+            // The metadata URI will be associated with the token later or retrieved differently
             const tx = await mintNFT({
-                args: [address, metadataUri, narrativePath],
+                args: [address, narrativePath], // Contract only expects 2 arguments: address and path
                 overrides: {
                     value: mintFee || "0" // Include the mint fee in the transaction
                 }
             });
             setTxHash(tx.receipt.transactionHash);
             setMintStatus("success");
+            
+            // Log success information to help debug
+            console.log("Mint successful:", {
+                txHash: tx.receipt.transactionHash,
+                blockNumber: tx.receipt.blockNumber
+            });
         } catch (error: any) {
             console.error("Minting error:", error);
-            setErrorMessage(error.message || "Unknown error occurred");
+            
+            // Provide more helpful error messages based on common contract issues
+            let errorMsg = error.message || "Unknown error occurred";
+            
+            if (errorMsg.includes("insufficient funds")) {
+                errorMsg = "Insufficient funds to cover the mint fee and gas. Please add more ETH to your wallet.";
+            } else if (errorMsg.includes("user rejected")) {
+                errorMsg = "Transaction was rejected in your wallet.";
+            } else if (errorMsg.toLowerCase().includes("revert")) {
+                errorMsg = `Transaction reverted by the contract. Possible reasons: already minted, contract paused, or invalid parameters. Details: ${errorMsg}`;
+            }
+            
+            setErrorMessage(errorMsg);
             setMintStatus("error");
         }
     };
