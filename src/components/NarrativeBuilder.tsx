@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useAddress } from "@thirdweb-dev/react";
-import { generateImage, checkExistingImage } from "../services/imageService";
+import { generateImage, checkExistingImage, generateImageWithRetry } from "../services/imageService";
 import { updateNarrative, finalizeNarrative } from "../services/narrativeService";
 import { uploadMetadata } from "../services/metadataService";
 import MintNFT from "./MintNFT";
@@ -270,18 +270,67 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
         try {
             showNotification('info', 'Finalizing your narrative...');
             const result = await finalizeNarrative(address as string);
+            
+            // Extract narrative text, handling different response formats
+            let narrativeText = "";
             if (result.data && result.data.narrativeText) {
-                setFinalNarrative(result.data.narrativeText);
+                narrativeText = result.data.narrativeText;
+            } else if (result.response) {
+                narrativeText = result.response;
+            }
+            
+            if (narrativeText) {
+                // Clean up the narrative if it appears to be truncated
+                const cleanedNarrative = cleanupTruncatedNarrative(narrativeText);
+                console.log("Final narrative length:", cleanedNarrative.length);
+                setFinalNarrative(cleanedNarrative);
                 setProcessingStep("image");
                 showNotification('success', 'Narrative finalized! You can now generate your NFT image.');
             } else {
-                showNotification('error', 'No narrative returned.');
+                showNotification('error', 'No narrative returned. Please try again.');
             }
         } catch (error) {
             console.error("Error finalizing narrative:", error);
             showNotification('error', 'Error finalizing narrative. Please try again.');
         }
         setIsFinalizing(false);
+    };
+
+    // Helper function to clean up potentially truncated narratives
+    const cleanupTruncatedNarrative = (narrative: string): string => {
+        if (!narrative) return "";
+        
+        // Check if the narrative appears truncated (ends mid-sentence with no punctuation)
+        const endsWithPunctuation = /[.!?][\s"']*$/.test(narrative);
+        
+        if (!endsWithPunctuation) {
+            console.log("Narrative appears to be truncated, looking for last complete sentence");
+            
+            // Find the last complete sentence by looking for sentence-ending punctuation
+            const lastPeriodIndex = narrative.lastIndexOf('.');
+            const lastExclamationIndex = narrative.lastIndexOf('!');
+            const lastQuestionIndex = narrative.lastIndexOf('?');
+            
+            // Get the max of the three, ensuring we don't return -1
+            const lastCompleteSentenceIndex = Math.max(
+                lastPeriodIndex, 
+                lastExclamationIndex, 
+                lastQuestionIndex
+            );
+            
+            // If we have a valid index that's not too close to the beginning
+            if (lastCompleteSentenceIndex > 0 && lastCompleteSentenceIndex > narrative.length * 0.5) {
+                // Include the punctuation mark by adding 1 to the index
+                const completeNarrative = narrative.substring(0, lastCompleteSentenceIndex + 1);
+                console.log(`Truncated narrative from ${narrative.length} to ${completeNarrative.length} characters`);
+                return completeNarrative;
+            }
+            
+            // If we don't have a good truncation point, add an ellipsis to indicate it's incomplete
+            return narrative + "...";
+        }
+        
+        return narrative;
     };
 
     const handleGenerateImage = async (forceNew = false) => {
@@ -295,16 +344,36 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
         }
         setIsGeneratingImage(true);
         try {
-            showNotification('info', 'Generating your NFT image. This may take a moment...');
+            showNotification('info', 'Generating your NFT image. This may take up to a minute...');
             const prompt = buildImagePrompt(finalNarrative);
-            const result = await generateImage(prompt, address, forceNew);
+            console.log("Generating image with prompt length:", prompt.length);
+            
+            // Try to get an existing image first unless forceNew is true
+            if (!forceNew) {
+                try {
+                    const existingImage = await checkExistingImage(address);
+                    if (existingImage && existingImage.image) {
+                        console.log("Found existing image, using it");
+                        setNftImage(existingImage.image);
+                        setProcessingStep("metadata");
+                        showNotification('success', 'Using your existing NFT image. Ready to upload to IPFS.');
+                        setIsGeneratingImage(false);
+                        return;
+                    }
+                } catch (err) {
+                    console.log("No existing image found, will generate new one");
+                }
+            }
+            
+            // If we're here, we need to generate a new image
+            const result = await generateImageWithRetry(prompt, address, forceNew, 3);
             if (result.image) {
                 setNftImage(result.image);
                 setProcessingStep("metadata");
                 showNotification('success', 'Image generated successfully! Ready to upload to IPFS.');
             }
         } catch (error) {
-            console.error("Error in process:", error);
+            console.error("Error generating image:", error);
             showNotification('error', 'Error generating image. Please try again.');
             setProcessingStep("image");
         }
