@@ -412,65 +412,19 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
             const metadataResult = await uploadMetadata(metadata, address);
             console.log("Metadata uploaded:", metadataResult);
             
-            // Extract URI from various possible response formats
-            let uri = null;
-            
-            if (metadataResult) {
-                // Direct URI in expected field
-                if (metadataResult.uri) {
-                    uri = metadataResult.uri;
-                } 
-                // Alternative field names that might contain the URI
-                else if (metadataResult.url) {
-                    uri = metadataResult.url;
-                } else if (metadataResult.ipfsUri) {
-                    uri = metadataResult.ipfsUri;
-                } else if (metadataResult.cid || metadataResult.hash) {
-                    uri = `ipfs://${metadataResult.cid || metadataResult.hash}`;
-                }
-                // Check for nested fields
-                else if (metadataResult.data && metadataResult.data.uri) {
-                    uri = metadataResult.data.uri;
-                }
-                // Last resort - try to use the entire result if it's a string
-                else if (typeof metadataResult === 'string' && metadataResult.includes('ipfs://')) {
-                    uri = metadataResult;
-                }
-            }
-            
-            if (uri) {
-                console.log("Found IPFS URI:", uri);
-                setMetadataUri(uri);
+            if (metadataResult.uri) {
+                setMetadataUri(metadataResult.uri);
                 setProcessingStep("mint");
                 showNotification('success', 'Metadata uploaded successfully! You can now mint your NFT.');
                 
                 // Update the metadata URI in the parent component
                 onNarrativeFinalized({
-                    metadataUri: uri,
+                    metadataUri: metadataResult.uri,
                     narrativePath: selectedPath,
                 });
             } else {
-                console.error("Could not extract URI from response:", metadataResult);
-                // Even though we couldn't find the URI, the upload might have worked
-                // Let's try to proceed anyway if we have a response
-                if (metadataResult && Object.keys(metadataResult).length > 0) {
-                    // Make our best guess at a URI if possible
-                    const bestGuessUri = metadataResult.originalResponse ? 
-                        `ipfs://unknown-format-see-console-for-details` : 
-                        `ipfs://unknown`;
-                    
-                    console.warn("Using best guess URI:", bestGuessUri);
-                    setMetadataUri(bestGuessUri);
-                    setProcessingStep("mint");
-                    showNotification('info', 'Upload appears successful but URI format is unexpected. Proceeding anyway.');
-                    
-                    onNarrativeFinalized({
-                        metadataUri: bestGuessUri,
-                        narrativePath: selectedPath,
-                    });
-                } else {
-                    throw new Error("No metadata URI returned and response is empty");
-                }
+                console.error("No URI found in response:", metadataResult);
+                throw new Error("No metadata URI returned");
             }
         } catch (error) {
             console.error("Error uploading metadata:", error);
