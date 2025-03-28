@@ -25,7 +25,7 @@ function App({ contract }: AppProps) {
           className="logo"
         />
         <img 
-          src="https://bafybeihh4spo2t3ijximaydz4xnj6ymodfr5wopvso3msjvclw6pm4jnj4.ipfs.dweb.link?filename=Don'tKilltheJamheader.jpg" 
+          src="https://bafybeidoee5nze6v6s2kkddecqmtiahp7he4jcu3au7ju3e5z43ihpfp3a.ipfs.dweb.link?filename=dontkillthejamheadernew.png" 
           alt="Jam Killer Header" 
           className="header-image"
         />
