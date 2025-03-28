@@ -98,6 +98,9 @@ const narrativePaths: { [key: string]: Question[] } = {
 
 // Helper function that creates a uniform image prompt based on the final narrative.
 const buildImagePrompt = (narrative: string): string => {
+    // The Flux model needs shorter prompts, so trim if necessary
+    const trimmedNarrative = narrative.length > 800 ? narrative.substring(0, 800) + "..." : narrative;
+    
     return `Create a high-quality, professional NFT artwork for "Don't Kill The Jam - A Jam Killer Storied Collectors NFT".
     Style: Ultra-detailed digital art, 8K resolution, professional lighting, cinematic composition.
     Technical specifications:
@@ -108,16 +111,9 @@ const buildImagePrompt = (narrative: string): string => {
     - Photorealistic textures and materials
     
     Core elements: Musical instruments, performers, stage elements, dynamic lighting effects.
-    Based on narrative: "${narrative}"
+    Based on narrative: "${trimmedNarrative}"
     
-    Negative prompt: blurry, low resolution, pixelated, watermarks, text overlays, distorted proportions, amateur composition, noise, grain, out of focus, poorly lit, oversaturated, washed out.
-    
-    Additional parameters:
-    - Steps: 75
-    - CFG Scale: 8.5
-    - Size: 1024x1024
-    - Sampler: DPM++ 2M Karras
-    - Denoising strength: 0.7`;
+    Negative prompt: blurry, low resolution, pixelated, watermarks, text overlays, distorted proportions, amateur composition, noise, grain, out of focus, poorly lit, oversaturated, washed out.`;
 };
 
 const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalized }) => {
@@ -344,47 +340,46 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
         }
         setIsGeneratingImage(true);
         try {
-            showNotification('info', 'Generating your NFT image. This may take up to a minute...');
+            showNotification('info', 'Generating your NFT image. This may take up to 30 seconds with the Flux model...');
             const prompt = buildImagePrompt(finalNarrative);
-            console.log("Generating image with prompt length:", prompt.length);
+            console.log("Prompt length:", prompt.length);
             
-            // If we're not forcing a new image, try to get an existing one first
-            let existingImage = null;
-            if (!forceNew) {
+            // Try up to 3 times with exponential backoff
+            let attempt = 1;
+            const maxAttempts = 3;
+            let success = false;
+            
+            while (attempt <= maxAttempts && !success) {
                 try {
-                    console.log("Checking for existing image...");
-                    existingImage = await checkExistingImage(address);
-                    if (existingImage && existingImage.image) {
-                        console.log("Found existing image, using it");
-                        setNftImage(existingImage.image);
+                    console.log(`Attempt ${attempt} of ${maxAttempts}`);
+                    const result = await generateImage(prompt, address, forceNew || attempt > 1);
+                    
+                    if (result && result.image) {
+                        setNftImage(result.image);
                         setProcessingStep("metadata");
-                        showNotification('success', 'Using your existing NFT image. Ready to upload to IPFS.');
-                        setIsGeneratingImage(false);
-                        return;
+                        showNotification('success', 'Image generated successfully! Ready to upload to IPFS.');
+                        success = true;
+                        break;
                     } else {
-                        console.log("No valid existing image found, generating new one");
+                        throw new Error("No valid image in response");
                     }
-                } catch (err) {
-                    console.error("Error checking for existing image:", err);
-                    console.log("Proceeding with new image generation");
+                } catch (attemptError) {
+                    console.error(`Attempt ${attempt} failed:`, attemptError);
+                    
+                    if (attempt === maxAttempts) {
+                        throw attemptError; // Re-throw on final attempt
+                    }
+                    
+                    // Wait before retrying
+                    const delay = 1000 * Math.pow(2, attempt);
+                    console.log(`Waiting ${delay}ms before retry...`);
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                    attempt++;
                 }
-            } else {
-                console.log("Force new image requested, skipping existing image check");
-            }
-            
-            // If we got here, we need to generate a new image
-            console.log("Generating new image using retry logic");
-            const result = await generateImageWithRetry(prompt, address, forceNew, 3);
-            if (result && result.image) {
-                setNftImage(result.image);
-                setProcessingStep("metadata");
-                showNotification('success', 'Image generated successfully! Ready to upload to IPFS.');
-            } else {
-                throw new Error("Image generation failed - no valid image returned");
             }
         } catch (error) {
             console.error("Error generating image:", error);
-            showNotification('error', 'Error generating image. Please try again or reset your process and start over.');
+            showNotification('error', 'Error generating image. The AI model might be overloaded. Please try again in a few minutes.');
             setProcessingStep("image");
         }
         setIsGeneratingImage(false);

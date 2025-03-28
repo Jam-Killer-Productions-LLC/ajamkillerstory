@@ -67,7 +67,7 @@ export const deleteExistingImage = async (userId: string): Promise<boolean> => {
 };
 
 export const generateImage = async (prompt: string, userId: string, forceNew = false): Promise<GenerateImageResponse> => {
-  console.log(`Generating image with prompt: "${prompt}" for userId: ${userId}`);
+  console.log(`Generating image with prompt: "${prompt.substring(0, 100)}..." for userId: ${userId}`);
   
   // Check if we need to delete existing image first or use existing one
   if (forceNew) {
@@ -83,7 +83,7 @@ export const generateImage = async (prompt: string, userId: string, forceNew = f
     }
   }
   
-  console.log('Generating new image');
+  console.log('Generating new image with Flux model');
   const response = await fetch('https://nftartist.producerprotocol.pro/generate', {
     method: 'POST',
     headers: {
@@ -100,15 +100,20 @@ export const generateImage = async (prompt: string, userId: string, forceNew = f
     throw new Error(`Image generation failed: ${errorText}`);
   }
 
-  const data = await response.json();
-  console.log('Response data:', data);
+  try {
+    const data = await response.json();
+    console.log('Response data received');
 
-  // Handle different response formats
-  if (!data.image && data.error) {
-    throw new Error(`Image generation failed: ${data.error}`);
+    // Handle different response formats
+    if (!data.image && data.error) {
+      throw new Error(`Image generation failed: ${data.error}`);
+    }
+
+    return data as GenerateImageResponse;
+  } catch (error) {
+    console.error('Error parsing response:', error);
+    throw new Error('Failed to parse image response from server');
   }
-
-  return data as GenerateImageResponse;
 };
 
 // Enhanced version with retry logic and timeout
