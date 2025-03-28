@@ -520,16 +520,22 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
             
             {!selectedPath && !hasExistingData ? (
                 <div className="narrative-section">
-                    <h3>Choose Your Destiny</h3>
-                    <button onClick={() => handlePathSelection("A")}>
-                        Path A: Build a band and host live events
-                    </button>
-                    <button onClick={() => handlePathSelection("B")}>
-                        Path B: Develop a solo career using AI-driven composition
-                    </button>
-                    <button onClick={() => handlePathSelection("C")}>
-                        Path C: Uncover and fight a conspiracy that suppresses artistic freedom
-                    </button>
+                    <h3>Start Your Story</h3>
+                    <p>Who's trying to kill your jam?</p>
+                    <div className="path-selection">
+                        <button onClick={() => handlePathSelection("A")} className="path-button">
+                            <span className="path-title">The Baby Next Door</span>
+                            <span className="path-description">Your neighbor's baby is the ultimate jam killer. Time to get creative!</span>
+                        </button>
+                        <button onClick={() => handlePathSelection("B")} className="path-button">
+                            <span className="path-title">The Mean Girlfriend</span>
+                            <span className="path-description">She says your music is "too loud" and "embarrassing". Show her what real music is!</span>
+                        </button>
+                        <button onClick={() => handlePathSelection("C")} className="path-button">
+                            <span className="path-title">The Jerk Bar Owner</span>
+                            <span className="path-description">He cut your set short for "being too experimental". Time for revenge!</span>
+                        </button>
+                    </div>
                 </div>
             ) : processingStep === "narrative" && !finalNarrative ? (
                 <div className="narrative-section">
