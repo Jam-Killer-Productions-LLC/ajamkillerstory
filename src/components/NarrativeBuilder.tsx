@@ -30,68 +30,68 @@ interface Notification {
 const narrativePaths: { [key: string]: Question[] } = {
     A: [
         {
-            prompt: "What is the name of your underground band fighting musical suppression?",
-            placeholder: "Create a memorable, rebellious band name that captures your essence...",
+            prompt: "What's the craziest band name you can think of?",
+            placeholder: "Something like 'The Dancing Potatoes' or 'The Quantum Cats'...",
         },
         {
-            prompt: "What forbidden music genres does your band blend to create your unique sound?",
-            placeholder: "Describe your revolutionary sound that challenges the musical status quo...",
+            prompt: "What's the weirdest combination of instruments you can imagine?",
+            placeholder: "Like a kazoo orchestra with a theremin soloist...",
         },
         {
-            prompt: "Describe the hidden venue where your most legendary performances happen.",
-            placeholder: "Paint a vivid picture of your secret performance space - its atmosphere, location, unique features...",
+            prompt: "Describe the most ridiculous venue your band would play at.",
+            placeholder: "Maybe a floating ice cream truck or a treehouse made of marshmallows...",
         },
         {
-            prompt: "What ingenious methods do you use to avoid detection by music suppressors?",
-            placeholder: "Detail your band's creative security measures, codes, or technologies...",
+            prompt: "What's the most unexpected thing that could happen during your performance?",
+            placeholder: "Like all the instruments turning into rubber chickens...",
         },
         {
-            prompt: "What powerful message does your music broadcast to this dystopian world?",
-            placeholder: "Describe your band's rebellious manifesto and how it inspires underground resistance...",
+            prompt: "What's the funniest message your band would want to spread?",
+            placeholder: "Something like 'Make the world dance like nobody's watching...'",
         },
     ],
     B: [
         {
-            prompt: "What enigmatic stage name have you chosen for your solo resistance act?",
-            placeholder: "Create a mysterious yet meaningful alias that represents your artistic rebellion...",
+            prompt: "What's the most ridiculous stage name you'd use?",
+            placeholder: "Like 'DJ Moonbeam McSparkles' or 'The Whistling Wizard'...",
         },
         {
-            prompt: "What innovative fusion of musical styles defines your revolutionary sound?",
-            placeholder: "Describe how you blend genres to create something the world has never heard before...",
+            prompt: "What's the strangest way you'd use technology in your music?",
+            placeholder: "Maybe using a toaster as a synthesizer or a robot choir...",
         },
         {
-            prompt: "How do you secretly use banned AI technology to enhance your compositions?",
-            placeholder: "Detail your groundbreaking techniques for merging human creativity with forbidden AI...",
+            prompt: "What's the most bizarre way you'd enhance your music with AI?",
+            placeholder: "Like having AI compose a symphony for rubber ducks...",
         },
         {
-            prompt: "Describe the hidden sanctuary where you perform your most transformative sets.",
-            placeholder: "Paint a vivid picture of this secret space - its atmosphere, audience, unique features...",
+            prompt: "Describe the most unusual place you'd perform.",
+            placeholder: "Perhaps a floating bubble or a giant teacup...",
         },
         {
-            prompt: "What subversive message do you encode in your music to awaken the masses?",
-            placeholder: "Explain the hidden meanings in your compositions and how they inspire resistance...",
+            prompt: "What's the funniest hidden message you'd put in your music?",
+            placeholder: "Something like 'This song was written by a very tired AI'...",
         },
     ],
     C: [
         {
-            prompt: "What critical truth about music suppression are you determined to expose?",
-            placeholder: "Describe the conspiracy you're unveiling and why it matters to humanity...",
+            prompt: "What's the most ridiculous conspiracy you'd investigate?",
+            placeholder: "Like why all the socks disappear in the laundry...",
         },
         {
-            prompt: "Who or what powerful entity do you believe orchestrates the musical suppression?",
-            placeholder: "Detail your prime suspects and the evidence pointing to their involvement...",
+            prompt: "Who would be the most unexpected mastermind behind it?",
+            placeholder: "Maybe a group of very organized pigeons...",
         },
         {
-            prompt: "What dangerous methods are you using to gather evidence against the suppressors?",
-            placeholder: "Describe your investigation techniques, technologies, and the risks you're taking...",
+            prompt: "What's the most absurd way you'd gather evidence?",
+            placeholder: "Like using a team of trained hamsters with tiny cameras...",
         },
         {
-            prompt: "What ingenious system have you developed to broadcast your findings worldwide?",
-            placeholder: "Explain your distribution network that can evade censorship and reach the masses...",
+            prompt: "What's the most ridiculous way you'd broadcast your findings?",
+            placeholder: "Perhaps through interpretive dance or carrier pigeons...",
         },
         {
-            prompt: "Describe your ultimate act of rebellion that will change music forever.",
-            placeholder: "Paint a vivid picture of your final, dramatic move against the suppressors...",
+            prompt: "What's the funniest way you'd expose the truth?",
+            placeholder: "Like organizing a flash mob of dancing vegetables...",
         },
     ],
 };
@@ -101,19 +101,21 @@ const buildImagePrompt = (narrative: string): string => {
     // The Flux model needs shorter prompts, so trim if necessary
     const trimmedNarrative = narrative.length > 800 ? narrative.substring(0, 800) + "..." : narrative;
     
-    return `Create a high-quality, professional NFT artwork for "Don't Kill The Jam - A Jam Killer Storied Collectors NFT".
-    Style: Ultra-detailed digital art, 8K resolution, professional lighting, cinematic composition.
+    return `Create a unique, humorous NFT artwork for "Don't Kill The Jam - A Jam Killer Storied Collectors NFT".
+    Style: Whimsical, playful digital art with vibrant colors and exaggerated elements.
     Technical specifications:
-    - Sharp, clear details with high contrast
-    - Rich, vibrant colors with professional color grading
-    - Dramatic lighting with perfect exposure
-    - Professional composition following rule of thirds
-    - Photorealistic textures and materials
+    - Bright, cheerful color palette
+    - Exaggerated, cartoon-like proportions
+    - Playful lighting and shadows
+    - Dynamic, energetic composition
+    - Fun, whimsical textures
     
-    Core elements: Musical instruments, performers, stage elements, dynamic lighting effects.
+    Core elements: Musical instruments, performers, stage elements, with a humorous twist.
     Based on narrative: "${trimmedNarrative}"
     
-    Negative prompt: blurry, low resolution, pixelated, watermarks, text overlays, distorted proportions, amateur composition, noise, grain, out of focus, poorly lit, oversaturated, washed out.`;
+    Make the image unique and specific to the narrative, but maintain a consistent playful style.
+    
+    Negative prompt: dark, gloomy, dystopian, realistic, serious, professional, corporate, formal, traditional, classical.`;
 };
 
 const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalized }) => {
