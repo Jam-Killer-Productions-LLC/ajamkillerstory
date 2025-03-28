@@ -12,8 +12,8 @@ html, body {
   --primary-color: #4CAF50;
   --primary-hover: #45a049;
   --text-color: #ffffff;
-  --background-color: rgba(0, 0, 0, 0.5);
-  --background-overlay: rgba(0, 0, 0, 0.5);
+  --background-color: #000000;
+  --background-overlay: rgba(0, 0, 0, 0.7);
   --transition-speed: 0.3s;
 }
 
@@ -25,6 +25,7 @@ html, body {
   background-color: var(--background-color);
   color: var(--text-color);
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  overflow-y: auto;
 }
 
 /* Responsive font sizes */
@@ -48,6 +49,7 @@ body {
   flex-direction: column;
   padding: 1rem;
   box-sizing: border-box;
+  overflow-y: auto;
 }
 
 /* Header styles */
