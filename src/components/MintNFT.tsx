@@ -6,6 +6,12 @@ import contractAbi from "../contractAbi.json";
 const NFT_CONTRACT_ADDRESS = "0xfA2A3452D86A9447e361205DFf29B1DD441f1821";
 const MOJO_TOKEN_CONTRACT_ADDRESS = "0xf9e7D3cd71Ee60C7A3A64Fa7Fcb81e610Ce1daA5";
 
+// Create event listener for transaction events
+const listenForTransactionEvents = (transactionHash: string) => {
+    console.log(`Setting up listeners for transaction: ${transactionHash}`);
+    // This would be implemented with web3 libraries in a production app
+};
+
 interface MintNFTProps {
     metadataUri: string;
     narrativePath: string;
@@ -126,32 +132,41 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
             console.log("Minting with:", {
                 address,
                 narrativePath,
-                metadataUri: metadataUri, // Logging for debugging, but not passing to contract directly
+                metadataUri: metadataUri, 
                 mintFee: mintFee?.toString() || "0",
                 mojoScore
             });
             
-            // The contract's mintNFT function only expects the recipient address and path
-            // The metadata URI is stored in the worker but not passed directly to the contract
-            // When minting, the contract simply creates a token with the specified path
-            // The metadata URI will be associated with the token later or retrieved differently
+            // Additional validation for contract state
+            console.log("Contract ready status:", !!contract);
+            console.log("Contract address:", NFT_CONTRACT_ADDRESS);
+            
+            // Log the exact arguments we're sending to the contract
+            const args = [address, narrativePath];
+            const overrides = { value: mintFee || "0" };
+            console.log("Contract call arguments:", JSON.stringify(args));
+            console.log("Transaction overrides:", JSON.stringify(overrides));
+            
+            // Execute the transaction
             const tx = await mintNFT({
-                args: [address, narrativePath], // Contract only expects 2 arguments: address and path
-                overrides: {
-                    value: mintFee || "0" // Include the mint fee in the transaction
-                }
+                args: args,
+                overrides: overrides
             });
+            
+            // Set up event listeners for the transaction
+            listenForTransactionEvents(tx.receipt.transactionHash);
+            
+            console.log("Full transaction receipt:", JSON.stringify(tx.receipt));
             setTxHash(tx.receipt.transactionHash);
             setMintStatus("success");
             
             // Log success information to help debug
             console.log("Mint successful:", {
                 txHash: tx.receipt.transactionHash,
-                blockNumber: tx.receipt.blockNumber
+                blockNumber: tx.receipt.blockNumber,
             });
             
             // Add the mojo score as an attribute in our metadata
-            // In a real implementation, you would update the metadata on IPFS
             console.log(`Adding Mojo Score: ${mojoScore} to metadata`);
             
             // Award Mojo tokens after successful mint
@@ -159,6 +174,13 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
             
         } catch (error: any) {
             console.error("Minting error:", error);
+            console.error("Error details:", JSON.stringify(error, null, 2));
+            
+            // Extract more detailed error information if available
+            const errorCode = error.code;
+            const errorData = error.data;
+            console.error("Error code:", errorCode);
+            console.error("Error data:", errorData);
             
             // Provide more helpful error messages based on common contract issues
             let errorMsg = error.message || "Unknown error occurred";
