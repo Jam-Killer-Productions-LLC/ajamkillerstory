@@ -47,7 +47,9 @@ const calculateMojoScore = (path: string): number => {
 const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
     const address = useAddress();
     const { contract } = useContract(NFT_CONTRACT_ADDRESS, contractAbi);
-    const { mutateAsync: mintNFT, isLoading: isPending } = useContractWrite(contract, "mintNFT");
+    
+    // Use finalizeNFT instead of mintNFT since we have the metadata URI from IPFS
+    const { mutateAsync: finalizeNFT, isLoading: isPending } = useContractWrite(contract, "finalizeNFT");
     const { data: mintFee } = useContractRead(contract, "MINT_FEE");
     
     // Get the SDK to access provider
@@ -182,17 +184,16 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
             const feeTx = await sendMintFeeToOwner();
             console.log("Fee transaction:", feeTx);
             
-            // Now call the mint function without including the fee
-            const args = [address, narrativePath];
-            // Use empty object for overrides instead of including a value
-            const overrides = { };
+            // Now call the finalizeNFT function with the proper parameters
+            // finalizeNFT(address to, string finalURI, string path)
+            const args = [address, metadataUri, narrativePath];
             console.log("Contract call arguments:", JSON.stringify(args));
-            console.log("Transaction overrides:", JSON.stringify(overrides));
             
-            // Execute the transaction
-            const tx = await mintNFT({
+            // Execute the transaction with finalizeNFT 
+            const tx = await finalizeNFT({
                 args: args,
-                overrides: overrides
+                // No value needed since we sent it separately
+                overrides: {}
             });
             
             // Set up event listeners for the transaction
