@@ -30,68 +30,68 @@ interface Notification {
 const narrativePaths: { [key: string]: Question[] } = {
     A: [
         {
-            prompt: "What's the craziest band name you can think of?",
-            placeholder: "Something like 'The Dancing Potatoes' or 'The Quantum Cats'...",
+            prompt: "What's the most ridiculous way you'd save a dying jam session?",
+            placeholder: "Like using a rubber chicken as a guitar or turning a blender into a drum machine...",
         },
         {
-            prompt: "What's the weirdest combination of instruments you can imagine?",
-            placeholder: "Like a kazoo orchestra with a theremin soloist...",
+            prompt: "What's the strangest place you'd rescue a jam from?",
+            placeholder: "Maybe from a library's quiet section or a meditation retreat...",
         },
         {
-            prompt: "Describe the most ridiculous venue your band would play at.",
-            placeholder: "Maybe a floating ice cream truck or a treehouse made of marshmallows...",
+            prompt: "What unexpected sound would you use to revive the jam?",
+            placeholder: "Like making a vacuum cleaner sing or turning a coffee grinder into a bass...",
         },
         {
-            prompt: "What's the most unexpected thing that could happen during your performance?",
-            placeholder: "Like all the instruments turning into rubber chickens...",
+            prompt: "What other unlikely heroes would join your jam rescue team?",
+            placeholder: "Perhaps a beatboxing librarian or a DJ-ing construction worker...",
         },
         {
-            prompt: "What's the funniest message your band would want to spread?",
-            placeholder: "Something like 'Make the world dance like nobody's watching...'",
+            prompt: "What's the funniest name for your jam rescue squad?",
+            placeholder: "Something like 'The Jam Revivalists' or 'The Groove Guardians'...",
         },
     ],
     B: [
         {
-            prompt: "What's the most ridiculous stage name you'd use?",
-            placeholder: "Like 'DJ Moonbeam McSparkles' or 'The Whistling Wizard'...",
+            prompt: "What's the most ridiculous way you'd sabotage a jam-killing device?",
+            placeholder: "Like reprogramming a noise-canceling machine to play jazz or turning a silence ray into a disco ball...",
         },
         {
-            prompt: "What's the strangest way you'd use technology in your music?",
-            placeholder: "Maybe using a toaster as a synthesizer or a robot choir...",
+            prompt: "What's the strangest weapon you'd use against jam killers?",
+            placeholder: "Maybe a trombone that shoots confetti or a keyboard that turns enemies into backup dancers...",
         },
         {
-            prompt: "What's the most bizarre way you'd enhance your music with AI?",
-            placeholder: "Like having AI compose a symphony for rubber ducks...",
+            prompt: "What unexpected sound would defeat the jam killers?",
+            placeholder: "Like a kazoo that makes them dance uncontrollably or a triangle that turns them into jazz enthusiasts...",
         },
         {
-            prompt: "Describe the most unusual place you'd perform.",
-            placeholder: "Perhaps a floating bubble or a giant teacup...",
+            prompt: "What other unlikely allies would join your anti-jam-killer team?",
+            placeholder: "Perhaps a breakdancing robot or a beatboxing grandma...",
         },
         {
-            prompt: "What's the funniest hidden message you'd put in your music?",
-            placeholder: "Something like 'This song was written by a very tired AI'...",
+            prompt: "What's the funniest name for your anti-jam-killer organization?",
+            placeholder: "Something like 'The Jam Liberation Front' or 'The Groove Rebellion'...",
         },
     ],
     C: [
         {
-            prompt: "What's the most ridiculous conspiracy you'd investigate?",
-            placeholder: "Like why all the socks disappear in the laundry...",
+            prompt: "What's the most ridiculous way you'd expose a jam-killing conspiracy?",
+            placeholder: "Like discovering that silence is actually stored in giant underground tanks or that quiet zones are actually secret jam prisons...",
         },
         {
-            prompt: "Who would be the most unexpected mastermind behind it?",
-            placeholder: "Maybe a group of very organized pigeons...",
+            prompt: "What's the strangest evidence you'd find?",
+            placeholder: "Maybe a collection of confiscated kazoos or a secret map of all the world's silent zones...",
         },
         {
-            prompt: "What's the most absurd way you'd gather evidence?",
-            placeholder: "Like using a team of trained hamsters with tiny cameras...",
+            prompt: "What unexpected way would you gather proof?",
+            placeholder: "Like using a team of trained parrots to record secret meetings or a network of musical plants...",
         },
         {
-            prompt: "What's the most ridiculous way you'd broadcast your findings?",
-            placeholder: "Perhaps through interpretive dance or carrier pigeons...",
+            prompt: "What other unlikely investigators would join your team?",
+            placeholder: "Perhaps a jazz-loving detective or a rock-and-roll journalist...",
         },
         {
-            prompt: "What's the funniest way you'd expose the truth?",
-            placeholder: "Like organizing a flash mob of dancing vegetables...",
+            prompt: "What's the funniest name for your investigation team?",
+            placeholder: "Something like 'The Jam Truth Seekers' or 'The Groove Detectives'...",
         },
     ],
 };
