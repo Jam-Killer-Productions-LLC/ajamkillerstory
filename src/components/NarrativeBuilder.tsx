@@ -110,7 +110,7 @@ const buildImagePrompt = (narrative: string): string => {
     - Dynamic, energetic composition
     - Fun, whimsical textures
     
-    Core elements: Musical instruments, performers, stage elements, with a humorous twist.
+    Core elements:
     Based on narrative: "${trimmedNarrative}"
     
     Make the image unique and specific to the narrative, but maintain a consistent playful style.
