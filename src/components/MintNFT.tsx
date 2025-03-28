@@ -20,6 +20,12 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
     const [mintStatus, setMintStatus] = useState<"idle" | "pending" | "success" | "error">("idle");
     const [txHash, setTxHash] = useState<string>("");
 
+    const formatMintFee = (fee: any) => {
+        if (!fee) return "0";
+        // Convert from wei to ETH and format to 6 decimal places
+        return (Number(fee) / 1e18).toFixed(6);
+    };
+
     const handleMint = async () => {
         if (!address) {
             alert("Please connect your wallet");
@@ -94,7 +100,7 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
             {mintStatus !== "success" && (
                 <p className="mint-info">
                     Minting will create your unique NFT on the Optimism blockchain.
-                    {mintFee && ` Mint fee: ${mintFee} ETH`}
+                    {mintFee && ` Mint fee: ${formatMintFee(mintFee)} ETH`}
                 </p>
             )}
         </div>
