@@ -111,7 +111,7 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
         try {
             setTokenAwardStatus("pending");
             
-            const response = await fetch("https://your-worker-url.workers.dev", {
+            const response = await fetch("https://mojotokenrewards.producerprotocol.pro/mint", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ 
@@ -119,6 +119,11 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
                     mojoScore: mojoScore 
                 }),
             });
+            
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || "Failed to mint tokens");
+            }
             
             const result = await response.json();
             
