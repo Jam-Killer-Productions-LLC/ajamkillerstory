@@ -525,8 +525,8 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
                     <p>Who's trying to kill your jam?</p>
                     <div className="path-selection">
                         <button onClick={() => handlePathSelection("A")} className="path-button">
-                            <span className="path-title">The Baby Next Door</span>
-                            <span className="path-description">Your neighbor's baby is the ultimate jam killer. Time to get creative!</span>
+                            <span className="path-title">The Noise Police Neighbor</span>
+                            <span className="path-description">Your uptight neighbor with a decibel meter and a vendetta against fun. Time to turn up the volume!</span>
                         </button>
                         <button onClick={() => handlePathSelection("B")} className="path-button">
                             <span className="path-title">The Mean Girlfriend</span>
