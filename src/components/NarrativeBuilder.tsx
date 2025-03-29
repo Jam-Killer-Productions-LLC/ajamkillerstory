@@ -425,7 +425,7 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
             
             // Create rich metadata with proper structure
             const metadata = {
-                name: "Don't Kill The Jam NFT",
+                name: `Don't Kill The Jam NFT - ${address.slice(0, 6)}`,
                 description: finalNarrative,
                 image: imageData, // Use the image data directly as it already has the correct prefix
                 external_url: "https://dontkillthejam.com",
@@ -449,7 +449,12 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
             
             // Upload metadata to IPFS with retry
             const metadataResult = await uploadMetadata(metadata, address);
-            console.log("Metadata uploaded:", metadataResult);
+            console.log("Metadata upload response:", metadataResult);
+            
+            // Check for warning in response (possible fallback URI)
+            if (metadataResult.warning) {
+                showNotification('info', `IPFS Note: ${metadataResult.warning}`);
+            }
             
             if (metadataResult.uri) {
                 // Validate URI format
@@ -478,7 +483,13 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
         } catch (error) {
             console.error("Error uploading metadata:", error);
             const errorMessage = error instanceof Error ? error.message : String(error);
-            showNotification('error', `Error uploading metadata: ${errorMessage}`);
+            
+            // Check for common CORS errors
+            if (errorMessage.includes('Failed to fetch') || errorMessage.includes('CORS')) {
+                showNotification('error', `CORS issue detected. Please try again or contact support with code: ${Date.now() % 10000}`);
+            } else {
+                showNotification('error', `Error uploading metadata: ${errorMessage}`);
+            }
             setProcessingStep("metadata");
         }
     };
