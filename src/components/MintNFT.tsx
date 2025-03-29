@@ -75,6 +75,9 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
     const [tokenAwardStatus, setTokenAwardStatus] = useState<"pending" | "success" | "error" | "idle">("idle");
     const [tokenTxHash, setTokenTxHash] = useState<string>("");
     const [isWalletReady, setIsWalletReady] = useState<boolean>(false);
+    const [isOwner, setIsOwner] = useState<boolean>(false);
+    const [withdrawStatus, setWithdrawStatus] = useState<"idle" | "pending" | "success" | "error">("idle");
+    const [withdrawTxHash, setWithdrawTxHash] = useState<string>("");
     
     // Check wallet readiness
     useEffect(() => {
@@ -109,6 +112,26 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
         checkWallet();
     }, [address, sdk]);
 
+    // Check if current user is the contract owner
+    useEffect(() => {
+        const checkOwner = async () => {
+            if (!address || !contract) return;
+            try {
+                // Try to read owner from contract
+                const ownerAddress = await contract.call("owner");
+                const isCurrentUserOwner = ownerAddress.toLowerCase() === address.toLowerCase();
+                setIsOwner(isCurrentUserOwner);
+                console.log(`Current user is${isCurrentUserOwner ? '' : ' not'} the contract owner`);
+            } catch (error) {
+                console.error("Error checking if user is owner:", error);
+                // Fallback to hardcoded owner address
+                setIsOwner(address.toLowerCase() === CONTRACT_OWNER_ADDRESS.toLowerCase());
+            }
+        };
+        
+        checkOwner();
+    }, [address, contract]);
+
     // Initialize mojo score when narrative path is available
     useEffect(() => {
         if (narrativePath) {
@@ -124,63 +147,131 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
         return (Number(fee) / 1e18).toFixed(6);
     };
 
-    // Function to award Mojo tokens - log detailed information
+    // Function to award Mojo tokens - with retry logic and better error handling
     const awardMojoTokens = async () => {
         if (!address) return;
         
-        try {
-            setTokenAwardStatus("pending");
-            console.log("Starting Mojo token award process...");
-            console.log("Sending request to token reward endpoint with data:", {
-                address: address,
-                mojoScore: mojoScore
-            });
-            
-            const response = await fetch("https://mojotokenrewards.producerprotocol.pro/mint", {
-                method: "POST",
-                headers: { 
-                    "Content-Type": "application/json",
-                    "Accept": "application/json"
-                },
-                body: JSON.stringify({ 
-                    address: address,
-                    mojoScore: mojoScore 
-                }),
-            });
-            
-            console.log("Token reward endpoint response status:", response.status);
-            
-            // Try to parse response as JSON first
-            let responseText = await response.text();
-            console.log("Raw response:", responseText);
-            
-            let responseData;
+        // Set up retry parameters
+        const maxRetries = 3;
+        const retryDelay = 3000; // 3 seconds
+        
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
             try {
-                responseData = JSON.parse(responseText);
-                console.log("Parsed response:", responseData);
-            } catch (parseError) {
-                console.error("Failed to parse response as JSON:", responseText);
-                responseData = { error: responseText || "Unknown error" };
+                setTokenAwardStatus("pending");
+                console.log(`Mojo token award attempt ${attempt}/${maxRetries}...`);
+                console.log("Sending request to token reward endpoint with data:", {
+                    address: address,
+                    mojoScore: mojoScore
+                });
+                
+                // Add a timeout to the fetch request
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+                
+                const response = await fetch("https://mojotokenrewards.producerprotocol.pro/mint", {
+                    method: "POST",
+                    headers: { 
+                        "Content-Type": "application/json",
+                        "Accept": "application/json"
+                    },
+                    body: JSON.stringify({ 
+                        address: address,
+                        mojoScore: mojoScore 
+                    }),
+                    signal: controller.signal
+                }).finally(() => clearTimeout(timeoutId));
+                
+                console.log("Token reward endpoint response status:", response.status);
+                
+                // Try to parse response as JSON first
+                let responseText = await response.text();
+                console.log("Raw response:", responseText);
+                
+                let responseData;
+                try {
+                    responseData = JSON.parse(responseText);
+                    console.log("Parsed response:", responseData);
+                } catch (parseError) {
+                    console.error("Failed to parse response as JSON:", responseText);
+                    responseData = { error: responseText || "Unknown error" };
+                }
+                
+                if (!response.ok) {
+                    throw new Error(responseData.error || `Failed to mint tokens: ${response.status}`);
+                }
+                
+                // If we made it here, the response is OK and parsed
+                if (responseData.success) {
+                    setTokenTxHash(responseData.txHash || "No transaction hash provided");
+                    setTokenAwardStatus("success");
+                    console.log("Mojo tokens awarded successfully!", responseData);
+                    return; // Exit the retry loop on success
+                } else {
+                    throw new Error(responseData.error || "Failed to award tokens");
+                }
+                
+            } catch (error: unknown) {
+                const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+                console.error(`Mojo token award attempt ${attempt} failed:`, errorMessage);
+                
+                // Check if this is our last attempt
+                if (attempt === maxRetries) {
+                    console.error("All Mojo token award attempts failed");
+                    setErrorMessage(`Error awarding Mojo tokens: ${errorMessage}`);
+                    setTokenAwardStatus("error");
+                    
+                    // Show a more user-friendly message for RPC errors
+                    if (errorMessage.includes("RPC") || 
+                        errorMessage.includes("SERVER_ERROR") || 
+                        errorMessage.includes("missing response")) {
+                        setErrorMessage("Unable to connect to the blockchain network. Please try again later or contact support. Your NFT was minted successfully, but Mojo tokens couldn't be awarded at this time.");
+                    }
+                } else {
+                    // Not the last attempt, wait before retrying
+                    console.log(`Waiting ${retryDelay/1000} seconds before retry...`);
+                    await new Promise(resolve => setTimeout(resolve, retryDelay));
+                }
+            }
+        }
+    };
+
+    // Function to withdraw contract balance to owner
+    const handleWithdrawFunds = async () => {
+        if (!address || !contract || !isOwner || !sdk) {
+            setErrorMessage("Only the contract owner can withdraw funds");
+            return;
+        }
+        
+        setWithdrawStatus("pending");
+        try {
+            console.log("Attempting to withdraw funds to contract owner...");
+            
+            // Check if contract has a withdraw function
+            let withdrawTx;
+            try {
+                // Try calling a standard withdraw function if it exists
+                withdrawTx = await contract.call("withdraw");
+            } catch (error) {
+                console.error("No standard withdraw function found, trying custom approach:", error);
+                
+                // If no withdraw function, we need to try a different approach
+                // Since we can't directly transfer funds from the contract without a withdraw function,
+                // we should inform the owner to add this functionality to the contract
+                throw new Error("The contract does not have a withdraw function. Please deploy an updated contract with withdrawal functionality or contact the developer to add this feature.");
             }
             
-            if (!response.ok) {
-                throw new Error(responseData.error || `Failed to mint tokens: ${response.status}`);
-            }
-            
-            // If we made it here, the response is OK and parsed
-            if (responseData.success) {
-                setTokenTxHash(responseData.txHash || "No transaction hash provided");
-                setTokenAwardStatus("success");
-                console.log("Mojo tokens awarded successfully!", responseData);
+            console.log("Withdrawal transaction:", withdrawTx);
+            if (withdrawTx && (withdrawTx.hash || withdrawTx.transactionHash)) {
+                setWithdrawTxHash(withdrawTx.hash || withdrawTx.transactionHash);
+                setWithdrawStatus("success");
             } else {
-                throw new Error(responseData.error || "Failed to award tokens");
+                throw new Error("Transaction completed but no transaction hash was returned");
             }
             
-        } catch (error: unknown) {
-            console.error("Error awarding Mojo tokens:", error);
-            const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-            setErrorMessage(`Error awarding Mojo tokens: ${errorMessage}`);
-            setTokenAwardStatus("error");
+        } catch (error: any) {
+            console.error("Error withdrawing funds:", error);
+            setErrorMessage(`Error withdrawing funds: ${error.message || "Unknown error"}`);
+            setWithdrawStatus("error");
         }
     };
 
@@ -276,16 +367,19 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
             setMintStatus("success");
 
             // Set a small delay before awarding tokens to ensure the mint transaction is fully processed
+            console.log("Setting a delay before awarding Mojo tokens...");
             setTimeout(async () => {
                 try {
                     // Award Mojo tokens after successful mint
                     await awardMojoTokens();
                 } catch (tokenError) {
                     console.error("Error in delayed token award:", tokenError);
-                    setErrorMessage("Error awarding tokens: " + (tokenError instanceof Error ? tokenError.message : "Unknown error"));
+                    setErrorMessage(tokenError instanceof Error ? 
+                        `Error awarding tokens: ${tokenError.message}` : 
+                        "Unknown error awarding tokens");
                     setTokenAwardStatus("error");
                 }
-            }, 3000); // 3 second delay
+            }, 5000); // Increase to 5 second delay
 
             // We don't need to update metadata since we're using the base token's metadata
             console.log("Using base token metadata, no updates needed");
@@ -323,7 +417,7 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
                         </a>
                         
                         {tokenAwardStatus === "pending" && (
-                            <p className="token-award-status">Awarding {mojoScore} Mojo tokens to your wallet...</p>
+                            <p className="token-award-status">Awarding {mojoScore} Mojo tokens to your wallet... (This may take a moment)</p>
                         )}
                         
                         {tokenAwardStatus === "success" && (
@@ -342,7 +436,8 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
                         
                         {tokenAwardStatus === "error" && (
                             <div className="token-award-status error">
-                                <p>Failed to award Mojo tokens. Please contact support.</p>
+                                <p>Your NFT was minted successfully, but there was an issue awarding Mojo tokens.</p>
+                                <p>You can try again later or contact support with the transaction hash above.</p>
                                 {errorMessage && <p className="error-details">{errorMessage}</p>}
                             </div>
                         )}
@@ -373,6 +468,44 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
         return null;
     };
 
+    // Render owner section with withdraw button
+    const renderOwnerSection = () => {
+        if (!isOwner) return null;
+        
+        return (
+            <div className="owner-section">
+                <h3>Contract Owner Functions</h3>
+                <button 
+                    onClick={handleWithdrawFunds}
+                    disabled={withdrawStatus === "pending"}
+                    className="withdraw-button"
+                >
+                    {withdrawStatus === "pending" ? "Withdrawing..." : "Withdraw Contract Funds"}
+                </button>
+                
+                {withdrawStatus === "success" && (
+                    <div className="withdraw-status success">
+                        <p>✅ Funds withdrawn successfully!</p>
+                        <a 
+                            href={`https://optimistic.etherscan.io/tx/${withdrawTxHash}`} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="tx-link"
+                        >
+                            View transaction on Etherscan
+                        </a>
+                    </div>
+                )}
+                
+                {withdrawStatus === "error" && (
+                    <div className="withdraw-status error">
+                        <p>Failed to withdraw funds. Error: {errorMessage}</p>
+                    </div>
+                )}
+            </div>
+        );
+    };
+
     return (
         <div className="mint-nft-container">
             {renderMintStatus()}
@@ -400,6 +533,8 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
                     {mintFee && ` Mint fee: ${formatMintFee(mintFee)} ETH`}
                 </p>
             )}
+            
+            {renderOwnerSection()}
         </div>
     );
 };
