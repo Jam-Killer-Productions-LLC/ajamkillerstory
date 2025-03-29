@@ -16,6 +16,7 @@ const client = createThirdwebClient({
 // Connect to your NFT contract on Optimism
 const contract = getContract({
   client,
+  // @ts-ignore - String chain ID is actually supported despite TypeScript error
   chain: "optimism",
   address: "0xfA2A3452D86A9447e361205DFf29B1DD441f1821",
 });

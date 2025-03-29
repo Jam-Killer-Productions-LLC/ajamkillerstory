@@ -242,6 +242,13 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
                 narrativeText = result.data.narrativeText;
             } else if (result.response) {
                 narrativeText = result.response;
+            } else if (typeof result === 'string') {
+                narrativeText = result;
+            }
+            
+            if (!narrativeText) {
+                console.error("No narrative text returned:", result);
+                throw new Error("No narrative text returned from the server");
             }
             
             if (narrativeText) {
@@ -255,7 +262,7 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
                 setMojoScore(score);
                 
                 setIsFinalized(true);
-                showNotification('success', 'Narrative finalized!');
+                showNotification('success', 'Narrative finalized! Now you can mint your NFT.');
                 
                 // Use the verified token URI from successful mint
                 onNarrativeFinalized({
@@ -268,8 +275,9 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
         } catch (error) {
             console.error("Error finalizing narrative:", error);
             showNotification('error', 'Error finalizing narrative. Please try again.');
+        } finally {
+            setIsFinalizing(false);
         }
-        setIsFinalizing(false);
     };
 
     // Helper function to clean up potentially truncated narratives
@@ -397,19 +405,46 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
                 </div>
             ) : currentQuestionIndex < narrativePaths[selectedPath].length ? (
                 // Show questions if not all are answered
-                renderQuestion()
+                <div>
+                    <div className="narrative-progress">
+                        <p>Question {currentQuestionIndex + 1} of {narrativePaths[selectedPath].length}</p>
+                        <progress value={currentQuestionIndex} max={narrativePaths[selectedPath].length}></progress>
+                    </div>
+                    {renderQuestion()}
+                    <button onClick={handleResetProcess} className="reset-button">
+                        Start Over
+                    </button>
+                </div>
             ) : (
                 // Show finalize narrative and mint NFT option
                 <div className="narrative-section">
-                    <h3>Your Final Narrative</h3>
-                    <p>{finalNarrative}</p>
+                    <h3>Your Jam Killer Story</h3>
+                    {finalNarrative ? (
+                        <div className="finalized-narrative">
+                            <p>{finalNarrative}</p>
+                        </div>
+                    ) : (
+                        <p className="narrative-instruction">Click "Finalize Narrative" to complete your story!</p>
+                    )}
                     
                     {!isFinalized ? (
-                        <button onClick={handleFinalize} disabled={isFinalizing}>
-                            {isFinalizing ? "Finalizing..." : "Finalize Narrative"}
-                        </button>
+                        <div className="finalize-section">
+                            <button 
+                                onClick={handleFinalize} 
+                                disabled={isFinalizing}
+                                className="finalize-button"
+                            >
+                                {isFinalizing ? "Finalizing..." : "Finalize Narrative"}
+                            </button>
+                            {isFinalizing && (
+                                <p className="finalize-loading">Generating your unique narrative... This may take a moment.</p>
+                            )}
+                            <button onClick={handleResetProcess} className="reset-button">
+                                Start Over
+                            </button>
+                        </div>
                     ) : (
-                        <div>
+                        <div className="mint-section">
                             <div className="mojo-score-preview">
                                 <p>Your Mojo Score: <span className="mojo-score">{mojoScore}</span></p>
                             </div>
@@ -417,6 +452,9 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
                                 metadataUri={baseTokenUri} 
                                 narrativePath={selectedPath} 
                             />
+                            <button onClick={handleResetProcess} className="reset-button small">
+                                Create Another Story
+                            </button>
                         </div>
                     )}
                 </div>

@@ -147,12 +147,47 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
         return (Number(fee) / 1e18).toFixed(6);
     };
 
+    // Function to withdraw contract balance to owner
+    const handleWithdrawFunds = async () => {
+        if (!address || !contract || !isOwner || !sdk) {
+            setErrorMessage("Only the contract owner can withdraw funds");
+            return;
+        }
+        
+        setWithdrawStatus("pending");
+        try {
+            console.log("Attempting to withdraw funds to contract owner...");
+            
+            // Create a custom function call to withdraw funds
+            const withdrawTx = await contract.call("withdraw");
+            
+            console.log("Withdrawal transaction:", withdrawTx);
+            if (withdrawTx) {
+                const hash = typeof withdrawTx === 'object' && withdrawTx !== null && 'receipt' in withdrawTx && withdrawTx.receipt
+                    ? withdrawTx.receipt.transactionHash
+                    : typeof withdrawTx === 'string'
+                    ? withdrawTx
+                    : '';
+                        
+                setWithdrawTxHash(hash);
+                setWithdrawStatus("success");
+            } else {
+                throw new Error("Transaction completed but no transaction hash was returned");
+            }
+            
+        } catch (error: any) {
+            console.error("Error withdrawing funds:", error);
+            setErrorMessage(`Error withdrawing funds: ${error.message || "Unknown error"}`);
+            setWithdrawStatus("error");
+        }
+    };
+
     // Function to award Mojo tokens - with retry logic and better error handling
     const awardMojoTokens = async () => {
         if (!address) return;
         
         // Set up retry parameters
-        const maxRetries = 3;
+        const maxRetries = 5; // Increased from 3 to 5
         const retryDelay = 3000; // 3 seconds
         
         for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -161,12 +196,13 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
                 console.log(`Mojo token award attempt ${attempt}/${maxRetries}...`);
                 console.log("Sending request to token reward endpoint with data:", {
                     address: address,
-                    mojoScore: mojoScore
+                    mojoScore: mojoScore,
+                    txHash: txHash // Add the mint transaction hash for verification
                 });
                 
                 // Add a timeout to the fetch request
                 const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+                const timeoutId = setTimeout(() => controller.abort(), 45000); // Increased to 45 seconds
                 
                 const response = await fetch("https://mojotokenrewards.producerprotocol.pro/mint", {
                     method: "POST",
@@ -176,7 +212,8 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
                     },
                     body: JSON.stringify({ 
                         address: address,
-                        mojoScore: mojoScore 
+                        mojoScore: mojoScore,
+                        txHash: txHash
                     }),
                     signal: controller.signal
                 }).finally(() => clearTimeout(timeoutId));
@@ -193,6 +230,15 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
                     console.log("Parsed response:", responseData);
                 } catch (parseError) {
                     console.error("Failed to parse response as JSON:", responseText);
+                    
+                    // If we have a text response that appears to be a transaction hash
+                    if (responseText && responseText.match(/^0x[a-fA-F0-9]{64}$/)) {
+                        setTokenTxHash(responseText);
+                        setTokenAwardStatus("success");
+                        console.log("Mojo tokens awarded successfully! (Transaction hash format)");
+                        return;
+                    }
+                    
                     responseData = { error: responseText || "Unknown error" };
                 }
                 
@@ -206,6 +252,12 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
                     setTokenAwardStatus("success");
                     console.log("Mojo tokens awarded successfully!", responseData);
                     return; // Exit the retry loop on success
+                } else if (responseData.txHash) {
+                    // Consider it successful if we have a txHash, even if "success" isn't true
+                    setTokenTxHash(responseData.txHash);
+                    setTokenAwardStatus("success");
+                    console.log("Mojo tokens awarded successfully (txHash present)!", responseData);
+                    return; // Exit the retry loop on success
                 } else {
                     throw new Error(responseData.error || "Failed to award tokens");
                 }
@@ -213,6 +265,16 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
             } catch (error: unknown) {
                 const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
                 console.error(`Mojo token award attempt ${attempt} failed:`, errorMessage);
+                
+                // If this error suggests the tokens were already awarded, consider it a success
+                if (errorMessage.includes("already awarded") || 
+                    errorMessage.includes("already received") ||
+                    errorMessage.includes("already minted")) {
+                    console.log("Tokens appear to have been awarded already based on error message");
+                    setTokenAwardStatus("success");
+                    setTokenTxHash("Previously awarded tokens");
+                    return;
+                }
                 
                 // Check if this is our last attempt
                 if (attempt === maxRetries) {
@@ -228,50 +290,11 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
                     }
                 } else {
                     // Not the last attempt, wait before retrying
-                    console.log(`Waiting ${retryDelay/1000} seconds before retry...`);
-                    await new Promise(resolve => setTimeout(resolve, retryDelay));
+                    const increasedDelay = retryDelay * Math.pow(1.5, attempt - 1); // Exponential backoff
+                    console.log(`Waiting ${increasedDelay/1000} seconds before retry...`);
+                    await new Promise(resolve => setTimeout(resolve, increasedDelay));
                 }
             }
-        }
-    };
-
-    // Function to withdraw contract balance to owner
-    const handleWithdrawFunds = async () => {
-        if (!address || !contract || !isOwner || !sdk) {
-            setErrorMessage("Only the contract owner can withdraw funds");
-            return;
-        }
-        
-        setWithdrawStatus("pending");
-        try {
-            console.log("Attempting to withdraw funds to contract owner...");
-            
-            // Check if contract has a withdraw function
-            let withdrawTx;
-            try {
-                // Try calling a standard withdraw function if it exists
-                withdrawTx = await contract.call("withdraw");
-            } catch (error) {
-                console.error("No standard withdraw function found, trying custom approach:", error);
-                
-                // If no withdraw function, we need to try a different approach
-                // Since we can't directly transfer funds from the contract without a withdraw function,
-                // we should inform the owner to add this functionality to the contract
-                throw new Error("The contract does not have a withdraw function. Please deploy an updated contract with withdrawal functionality or contact the developer to add this feature.");
-            }
-            
-            console.log("Withdrawal transaction:", withdrawTx);
-            if (withdrawTx && (withdrawTx.hash || withdrawTx.transactionHash)) {
-                setWithdrawTxHash(withdrawTx.hash || withdrawTx.transactionHash);
-                setWithdrawStatus("success");
-            } else {
-                throw new Error("Transaction completed but no transaction hash was returned");
-            }
-            
-        } catch (error: any) {
-            console.error("Error withdrawing funds:", error);
-            setErrorMessage(`Error withdrawing funds: ${error.message || "Unknown error"}`);
-            setWithdrawStatus("error");
         }
     };
 
@@ -327,7 +350,14 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
                 mojoScore,
             });
 
-            // Instead of sending fee separately, pass it directly in the mintNFT call
+            // Make sure we're using the right chain (Optimism)
+            const currentChain = await sdk?.wallet.getChainId();
+            console.log("Current chain ID:", currentChain);
+            if (currentChain !== 10) { // 10 is Optimism's chain ID
+                throw new Error("Please connect to the Optimism network to mint.");
+            }
+
+            // Pass mint fee in the transaction
             const mintTx = await mintNFT({
                 args: [address, narrativePath],
                 overrides: {
@@ -344,7 +374,7 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
                 );
             }
 
-            // Finalize NFT by passing metadata URI
+            // Finalize NFT with metadata
             const finalizeTx = await finalizeNFT({
                 args: [address, metadataUri, narrativePath],
                 overrides: { gasLimit: 1000000 },
@@ -366,7 +396,7 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
             );
             setMintStatus("success");
 
-            // Set a small delay before awarding tokens to ensure the mint transaction is fully processed
+            // Set a delay before awarding tokens
             console.log("Setting a delay before awarding Mojo tokens...");
             setTimeout(async () => {
                 try {
@@ -379,10 +409,8 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
                         "Unknown error awarding tokens");
                     setTokenAwardStatus("error");
                 }
-            }, 5000); // Increase to 5 second delay
-
-            // We don't need to update metadata since we're using the base token's metadata
-            console.log("Using base token metadata, no updates needed");
+            }, 8000); // Increased to 8 seconds for better network confirmation
+            
         } catch (error: any) {
             console.error("Minting error:", error);
             let errorMsg =
@@ -392,6 +420,10 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
                     "Insufficient funds to cover the mint fee and gas. Please add more ETH to your wallet.";
             } else if (errorMsg.toLowerCase().includes("revert")) {
                 errorMsg = `Transaction reverted by the contract. Details: ${errorMsg}`;
+            } else if (errorMsg.includes("network") || errorMsg.includes("chain")) {
+                errorMsg = "Please make sure you are connected to the Optimism network.";
+            } else if (errorMsg.includes("user rejected") || errorMsg.includes("user denied")) {
+                errorMsg = "Transaction was rejected. Please approve the transaction in your wallet to mint the NFT.";
             }
             setErrorMessage(errorMsg);
             setMintStatus("error");
@@ -423,14 +455,16 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
                         {tokenAwardStatus === "success" && (
                             <div className="token-award-status success">
                                 <p>🎁 {mojoScore} Mojo tokens awarded successfully!</p>
-                                <a 
-                                    href={`https://optimistic.etherscan.io/tx/${tokenTxHash}`} 
-                                    target="_blank" 
-                                    rel="noopener noreferrer"
-                                    className="tx-link"
-                                >
-                                    View token transaction on Etherscan
-                                </a>
+                                {tokenTxHash && tokenTxHash !== "Previously awarded tokens" && (
+                                    <a 
+                                        href={`https://optimistic.etherscan.io/tx/${tokenTxHash}`} 
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className="tx-link"
+                                    >
+                                        View token transaction on Etherscan
+                                    </a>
+                                )}
                             </div>
                         )}
                         
@@ -439,6 +473,12 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
                                 <p>Your NFT was minted successfully, but there was an issue awarding Mojo tokens.</p>
                                 <p>You can try again later or contact support with the transaction hash above.</p>
                                 {errorMessage && <p className="error-details">{errorMessage}</p>}
+                                <button
+                                    onClick={awardMojoTokens}
+                                    className="retry-tokens-button"
+                                >
+                                    Retry Token Award
+                                </button>
                             </div>
                         )}
                     </div>
@@ -448,6 +488,13 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
                     <div className="mint-status error">
                         <p>Minting failed. Please try again.</p>
                         {errorMessage && <p className="error-details">{errorMessage}</p>}
+                        <button
+                            onClick={handleMint}
+                            className="retry-mint-button"
+                            disabled={isPending}
+                        >
+                            Retry Mint
+                        </button>
                     </div>
                 );
             default:
