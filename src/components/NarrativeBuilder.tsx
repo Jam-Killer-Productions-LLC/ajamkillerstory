@@ -380,7 +380,7 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
     };
 
     return (
-        <div>
+        <div className="narrative-builder">
             {renderNotification()}
             {renderProcessingStatus()}
             
@@ -405,46 +405,21 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
                 </div>
             ) : currentQuestionIndex < narrativePaths[selectedPath].length ? (
                 // Show questions if not all are answered
-                <div>
-                    <div className="narrative-progress">
-                        <p>Question {currentQuestionIndex + 1} of {narrativePaths[selectedPath].length}</p>
-                        <progress value={currentQuestionIndex} max={narrativePaths[selectedPath].length}></progress>
-                    </div>
+                <div className="narrative-question-section">
                     {renderQuestion()}
-                    <button onClick={handleResetProcess} className="reset-button">
-                        Start Over
-                    </button>
                 </div>
             ) : (
                 // Show finalize narrative and mint NFT option
                 <div className="narrative-section">
-                    <h3>Your Jam Killer Story</h3>
-                    {finalNarrative ? (
-                        <div className="finalized-narrative">
-                            <p>{finalNarrative}</p>
-                        </div>
-                    ) : (
-                        <p className="narrative-instruction">Click "Finalize Narrative" to complete your story!</p>
-                    )}
+                    <h3>Your Final Narrative</h3>
+                    <p>{finalNarrative}</p>
                     
                     {!isFinalized ? (
-                        <div className="finalize-section">
-                            <button 
-                                onClick={handleFinalize} 
-                                disabled={isFinalizing}
-                                className="finalize-button"
-                            >
-                                {isFinalizing ? "Finalizing..." : "Finalize Narrative"}
-                            </button>
-                            {isFinalizing && (
-                                <p className="finalize-loading">Generating your unique narrative... This may take a moment.</p>
-                            )}
-                            <button onClick={handleResetProcess} className="reset-button">
-                                Start Over
-                            </button>
-                        </div>
+                        <button onClick={handleFinalize} disabled={isFinalizing}>
+                            {isFinalizing ? "Finalizing..." : "Finalize Narrative"}
+                        </button>
                     ) : (
-                        <div className="mint-section">
+                        <div>
                             <div className="mojo-score-preview">
                                 <p>Your Mojo Score: <span className="mojo-score">{mojoScore}</span></p>
                             </div>
@@ -452,9 +427,6 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
                                 metadataUri={baseTokenUri} 
                                 narrativePath={selectedPath} 
                             />
-                            <button onClick={handleResetProcess} className="reset-button small">
-                                Create Another Story
-                            </button>
                         </div>
                     )}
                 </div>
