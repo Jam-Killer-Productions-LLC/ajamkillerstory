@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useAddress } from "@thirdweb-dev/react";
 import { updateNarrative, finalizeNarrative } from "../services/narrativeService";
-import { uploadMetadata } from "../services/metadataService";
 import MintNFT from "./MintNFT";
 
 // Define the data structure for the finalized narrative
@@ -95,28 +94,6 @@ const narrativePaths: { [key: string]: Question[] } = {
     ],
 };
 
-// Helper function that creates a uniform image prompt based on the final narrative.
-const buildImagePrompt = (narrative: string): string => {
-    // The Flux model needs shorter prompts, so trim if necessary
-    const trimmedNarrative = narrative.length > 800 ? narrative.substring(0, 800) + "..." : narrative;
-    
-    return `Create a unique, humorous NFT artwork for "Don't Kill The Jam - A Jam Killer Storied Collectors NFT".
-    Style: Whimsical, playful digital art with vibrant colors and exaggerated elements.
-    Technical specifications:
-    - Bright, cheerful color palette
-    - Exaggerated, cartoon-like proportions
-    - Playful lighting and shadows
-    - Dynamic, energetic composition
-    - Fun, whimsical textures
-    
-    Core elements:
-    Based on narrative: "${trimmedNarrative}"
-    
-    Make the image unique and specific to the narrative, but maintain a consistent playful style.
-    
-    Negative prompt: dark, gloomy, dystopian, realistic, serious, professional, corporate, formal, traditional, classical.`;
-};
-
 // Helper function to calculate the Mojo Score
 const calculateMojoScore = (path: string): number => {
     // Base score for each path
@@ -142,6 +119,9 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
     const [notification, setNotification] = useState<Notification | null>(null);
     const [isFinalized, setIsFinalized] = useState<boolean>(false);
     const [mojoScore, setMojoScore] = useState<number>(0);
+    
+    // Token 2's URI to use for all mints
+    const token2Uri = "ipfs://QmYBeiQoCoigVVdkppZasMUtDrDk6DFRya6G3CDkq8eR5Y";
 
     // Add clearNarrativeData function
     const clearNarrativeData = async () => {
@@ -209,6 +189,7 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
         setAllAnswers([]);
         setFinalNarrative("");
         setCurrentAnswer("");
+        setIsFinalized(false);
     };
 
     const handleAnswerSubmit = async () => {
@@ -275,9 +256,9 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
                 setIsFinalized(true);
                 showNotification('success', 'Narrative finalized!');
                 
-                // Notify parent component
+                // Use token 2's URI as the metadata URI
                 onNarrativeFinalized({
-                    metadataUri: "", // No metadata URI needed
+                    metadataUri: token2Uri,
                     narrativePath: selectedPath,
                 });
             } else {
@@ -342,6 +323,7 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
             setAllAnswers([]);
             setFinalNarrative("");
             setCurrentAnswer("");
+            setIsFinalized(false);
             showNotification('info', 'Process reset. You can start over.');
         }
     };
@@ -431,7 +413,7 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
                                 <p>Your Mojo Score: <span className="mojo-score">{mojoScore}</span></p>
                             </div>
                             <MintNFT 
-                                metadataUri="" 
+                                metadataUri={token2Uri} 
                                 narrativePath={selectedPath} 
                             />
                         </div>
