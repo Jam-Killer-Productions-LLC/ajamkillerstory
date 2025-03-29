@@ -6,6 +6,7 @@ interface UploadResponse {
   uri?: string;
   message?: string;
   error?: string;
+  warning?: string;
 }
 
 /**
@@ -44,11 +45,12 @@ export const uploadMetadata = async (metadata: any, userId: string): Promise<Upl
       const errorText = await response.text();
       console.error("IPFS upload failed:", response.status, errorText);
       
-      // Return an error response
+      // Return an error response with fallback URI
       return {
         success: false,
         error: `IPFS upload failed: ${response.status}`,
-        uri: generateFallbackUri(userId)
+        uri: generateFallbackUri(userId),
+        warning: "Using fallback URI due to upload failure"
       };
     }
     
@@ -62,7 +64,8 @@ export const uploadMetadata = async (metadata: any, userId: string): Promise<Upl
         return {
           success: true,
           uri: data.uri,
-          message: data.message || "Upload successful"
+          message: data.message || "Upload successful",
+          warning: data.warning // Pass through any warnings from the worker
         };
       } else if (data.success) {
         // Success but no URI for some reason
@@ -70,7 +73,8 @@ export const uploadMetadata = async (metadata: any, userId: string): Promise<Upl
         return {
           success: true,
           uri: generateFallbackUri(userId),
-          message: "Upload successful but URI was missing"
+          message: "Upload successful but URI was missing",
+          warning: "Using fallback URI - worker did not return a valid IPFS URI"
         };
       } else {
         // Something went wrong
@@ -78,7 +82,8 @@ export const uploadMetadata = async (metadata: any, userId: string): Promise<Upl
         return {
           success: false,
           error: data.error || "Unknown error",
-          uri: generateFallbackUri(userId)
+          uri: generateFallbackUri(userId),
+          warning: "Using fallback URI due to worker error"
         };
       }
     } catch (parseError) {
@@ -86,7 +91,8 @@ export const uploadMetadata = async (metadata: any, userId: string): Promise<Upl
       return {
         success: false,
         error: "Failed to parse worker response",
-        uri: generateFallbackUri(userId)
+        uri: generateFallbackUri(userId),
+        warning: "Using fallback URI due to response parsing error"
       };
     }
   } catch (error) {
@@ -94,7 +100,8 @@ export const uploadMetadata = async (metadata: any, userId: string): Promise<Upl
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error',
-      uri: generateFallbackUri(userId)
+      uri: generateFallbackUri(userId),
+      warning: "Using fallback URI due to network error"
     };
   }
 };
