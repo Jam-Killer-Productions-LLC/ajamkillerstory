@@ -3,16 +3,23 @@ html, body {
   margin: 0; 
   padding: 0; 
   overflow-x: hidden; /* Prevent horizontal scroll and white edge on mobile */
-  height: 100%; /* Ensure full height */
-  background-color: #000000;
-  color: #ffffff;
+  color: white;
+  background-color: black;
+  height: 100%;
 }
 
-/* Add this to ensure content is always visible */
-#root {
+body {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+}
+
+#root {
+  min-height: 100vh;
+  background-color: black;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
 }
 
 /* Base styles and variables */

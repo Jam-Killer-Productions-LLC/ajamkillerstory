@@ -23,6 +23,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     };
   }, []);
 
+  // Debug message to help troubleshoot
+  console.log("Layout rendering, address:", address);
+
   return (
     <div className={`app-container ${isMobile ? 'mobile-view' : ''}`}>
       <header className="header">
@@ -35,12 +38,21 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           />
         </div>
         <div className="header-right">
-          <ConnectWallet className="connect-button" />
+          {!address ? (
+            <ConnectWallet className="connect-button" />
+          ) : (
+            <div className="wallet-info">
+              <p className="wallet-address">{address.slice(0, 6)}...{address.slice(-4)}</p>
+            </div>
+          )}
         </div>
       </header>
       <main className="main-content">
-        {/* Show content regardless of wallet connection status */}
-        {children}
+        {address ? children : (
+          <div className="connect-prompt">
+            <p>Please connect your wallet to continue</p>
+          </div>
+        )}
       </main>
     </div>
   );
