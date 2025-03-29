@@ -10,7 +10,7 @@ export const uploadMetadata = async (metadata: any, userId: string) => {
   
   try {
     // Direct request to the metadata service
-    const response = await fetch("https://mojohand.producerprotocol.pro/upload", {
+    const response = await fetch("https://metaupload.producerprotocol.pro/upload", {
       method: "POST",
       headers: { 
         "Content-Type": "application/json",
