@@ -117,59 +117,6 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
         return (Number(fee) / 1e18).toFixed(6);
     };
 
-    // Add a utility function to send the mint fee to the contract owner
-    const sendMintFeeToOwner = async () => {
-        if (!address || !mintFee || !sdk) {
-            console.error("Missing required data for sending mint fee:", {
-                address: !!address,
-                mintFee: !!mintFee,
-                sdk: !!sdk
-            });
-            throw new Error("Wallet not ready or mint fee not loaded");
-        }
-        
-        if (!isWalletReady) {
-            throw new Error("Wallet not ready or properly connected");
-        }
-        
-        try {
-            // Get the wallet client from SDK
-            const wallet = sdk.wallet;
-            if (!wallet) {
-                throw new Error("Wallet not available");
-            }
-            
-            // Convert mintFee to a string to avoid type issues
-            const mintFeeValue = mintFee.toString();
-            
-            console.log("Sending mint fee of", formatMintFee(mintFee), "ETH to", CONTRACT_OWNER_ADDRESS);
-            console.log("Mint fee value type:", typeof mintFeeValue, "Value:", mintFeeValue);
-            
-            // Send the transaction with string value
-            const tx = await wallet.transfer(
-                CONTRACT_OWNER_ADDRESS,
-                mintFeeValue
-            );
-            
-            console.log("Mint fee transaction submitted:", tx);
-            
-            console.log("Mint fee sent to contract owner:", tx);
-            return tx;
-        } catch (error) {
-            console.error("Error sending mint fee to owner:", error);
-            const errorMessage = error instanceof Error ? error.message : String(error);
-            
-            // Check for common wallet errors and provide better messages
-            if (errorMessage.includes("insufficient funds")) {
-                throw new Error("Insufficient funds to cover the mint fee. Please add more ETH to your wallet.");
-            } else if (errorMessage.includes("user rejected")) {
-                throw new Error("Transaction was rejected in your wallet.");
-            } else {
-                throw error;
-            }
-        }
-    };
-
     // Function to award Mojo tokens
     const awardMojoTokens = async () => {
         if (!address) return;
@@ -263,178 +210,67 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
             setMojoScore(calculateMojoScore(narrativePath));
         }
 
-        // Start the minting process
         setMintStatus("pending");
         try {
             console.log("Minting with:", {
                 address,
                 narrativePath,
-                metadataUri: metadataUri, 
+                metadataUri,
                 mintFee: mintFee?.toString() || "0",
-                mojoScore
+                mojoScore,
             });
-            
-            // Additional validation for contract state
-            console.log("Contract ready status:", !!contract);
-            console.log("Contract address:", NFT_CONTRACT_ADDRESS);
-            
-            // First, send the mint fee to the contract owner 
-            console.log("Step 1: Sending mint fee to contract owner:", CONTRACT_OWNER_ADDRESS);
-            
-            // We'll try to handle fee transaction separately for better error handling
-            let feeTx;
-            try {
-                feeTx = await sendMintFeeToOwner();
-                console.log("Fee transaction successful:", feeTx);
-            } catch (feeError) {
-                console.error("Fee transaction failed:", feeError);
-                const feeErrorMsg = feeError instanceof Error ? feeError.message : String(feeError);
-                throw new Error(`Failed to send mint fee: ${feeErrorMsg}`);
-            }
-            
-            // Then mint the NFT to get the token ID without sending additional value
-            console.log("Step 2: Creating NFT with mintNFT for path:", narrativePath);
-            
-            const mintTx = await mintNFT({ 
-                args: [
-                    address, 
-                    narrativePath
-                ],
+
+            // Instead of sending fee separately, pass it directly in the mintNFT call
+            const mintTx = await mintNFT({
+                args: [address, narrativePath],
                 overrides: {
-                    gasLimit: 1000000, // High gas limit
-                }
+                    value: mintFee,
+                    gasLimit: 1000000,
+                },
             });
-            
+
             console.log("mintNFT transaction submitted:", mintTx);
-            
-            // Make sure we have a transaction receipt
+
             if (!mintTx || !mintTx.receipt) {
-                throw new Error("mintNFT transaction was submitted but no receipt was returned");
+                throw new Error(
+                    "mintNFT transaction was submitted but no receipt was returned",
+                );
             }
-            
-            // Now finalize NFT with metadata URI
-            try {
-                // Look for the NFTMinted event to get the token ID
-                const events = mintTx.receipt.logs;
-                console.log("Transaction events:", events);
-                
-                // Since we can't easily parse events here, we'll use the address's last token
-                console.log("Using latest token for the address");
-                
-                // Now finalize NFT with metadata URI
-                console.log("Step 3: Finalizing NFT with metadata URI");
-                console.log("Metadata URI:", metadataUri);
-                
-                // Verify metadataUri format before sending
-                if (!metadataUri.startsWith("ipfs://")) {
-                    throw new Error(`Invalid metadata URI format: ${metadataUri}. Must start with ipfs://`);
-                }
-                
-                // Call finalizeNFT with the metadata URI that includes the mojo score
-                const finalizeTx = await finalizeNFT({ 
-                    args: [
-                        address, 
-                        metadataUri,
-                        narrativePath
-                    ],
-                    overrides: {
-                        gasLimit: 1000000, // High gas limit
-                    }
-                });
-                
-                console.log("finalizeNFT transaction submitted:", finalizeTx);
-                
-                // Make sure we have a transaction receipt
-                if (!finalizeTx || !finalizeTx.receipt) {
-                    throw new Error("finalizeNFT transaction was submitted but no receipt was returned");
-                }
-                
-                // Set the transaction hash to the finalize transaction
-                setTxHash(finalizeTx.receipt.transactionHash);
-                
-                // Set up event listeners for the finalize transaction
-                listenForTransactionEvents(finalizeTx.receipt.transactionHash);
-                
-            } catch (finalizeError) {
-                console.error("Error finalizing NFT:", finalizeError);
-                // Continue with the mint transaction hash at least
-                setTxHash(mintTx.receipt.transactionHash);
-                // Set up event listeners for at least the mint transaction
-                listenForTransactionEvents(mintTx.receipt.transactionHash);
-                // Throw the error to be caught by the outer catch
-                throw finalizeError;
-            }
-            
-            // Use the transaction hash that was set
-            console.log("Transaction confirmed, receipt:", { txHash });
-            setMintStatus("success");
-            
-            // Log success information to help debug
-            console.log("Mint successful:", {
-                txHash: txHash,
-                blockNumber: mintTx.receipt.blockNumber,
-                feeTransaction: feeTx
+
+            // Finalize NFT by passing metadata URI
+            const finalizeTx = await finalizeNFT({
+                args: [address, metadataUri, narrativePath],
+                overrides: { gasLimit: 1000000 },
             });
-            
-            // Add the mojo score as an attribute in our metadata
-            console.log(`Adding Mojo Score: ${mojoScore} to metadata`);
-            
+
+            console.log(
+                "finalizeNFT transaction submitted:",
+                finalizeTx,
+            );
+            if (!finalizeTx || !finalizeTx.receipt) {
+                throw new Error(
+                    "finalizeNFT transaction was submitted but no receipt was returned",
+                );
+            }
+
+            setTxHash(finalizeTx.receipt.transactionHash);
+            listenForTransactionEvents(
+                finalizeTx.receipt.transactionHash,
+            );
+            setMintStatus("success");
+
             // Award Mojo tokens after successful mint
             await awardMojoTokens();
-            
         } catch (error: any) {
             console.error("Minting error:", error);
-            
-            // Improve error logging with better formatting
-            try {
-                // Try to stringify the error object for better debugging
-                const errorDetails = JSON.stringify(error, (key, value) => {
-                    // Handle circular references
-                    if (key === 'cause' && value === error) {
-                        return '[Circular Reference]';
-                    }
-                    return value;
-                }, 2);
-                console.error("Structured error details:", errorDetails);
-            } catch (stringifyError) {
-                console.error("Error stringifying error object:", stringifyError);
-                console.error("Raw error object:", error);
-            }
-            
-            // Extract more detailed error information if available
-            const errorCode = error.code;
-            const errorData = error.data;
-            console.error("Error code:", errorCode);
-            console.error("Error data:", errorData);
-            
-            // Provide more helpful error messages based on common contract issues
-            let errorMsg = error.message || "Unknown error occurred";
-            
+            let errorMsg =
+                error.message || "Unknown error occurred";
             if (errorMsg.includes("insufficient funds")) {
-                errorMsg = "Insufficient funds to cover the mint fee and gas. Please add more ETH to your wallet.";
-            } else if (errorMsg.includes("user rejected") || errorMsg.includes("user denied")) {
-                errorMsg = "Transaction was rejected in your wallet.";
+                errorMsg =
+                    "Insufficient funds to cover the mint fee and gas. Please add more ETH to your wallet.";
             } else if (errorMsg.toLowerCase().includes("revert")) {
-                // Check for specific contract error messages
-                if (errorMsg.includes("already minted") || errorMsg.includes("hasFinalNFT")) {
-                    errorMsg = "You have already minted an NFT with this wallet address.";
-                } else if (errorMsg.includes("paused")) {
-                    errorMsg = "The contract is currently paused. Please try again later.";
-                } else if (errorMsg.includes("invalid")) {
-                    errorMsg = "Invalid parameters provided to the contract. Please check your narrative path and metadata URI.";
-                } else {
-                    errorMsg = `Transaction reverted by the contract. Details: ${errorMsg}`;
-                }
-            } else if (error.cause && error.cause.issues) {
-                // Handle validation errors
-                const issues = error.cause.issues;
-                errorMsg = `Validation error: ${JSON.stringify(issues)}`;
-            } else if (errorMsg.includes("network") || errorMsg.includes("connection")) {
-                errorMsg = "Network connection issue. Please check your internet connection and try again.";
-            } else if (errorMsg.includes("gas")) {
-                errorMsg = "Gas estimation failed. This might be due to contract constraints or network congestion. Try increasing the gas limit.";
+                errorMsg = `Transaction reverted by the contract. Details: ${errorMsg}`;
             }
-            
             setErrorMessage(errorMsg);
             setMintStatus("error");
         }
