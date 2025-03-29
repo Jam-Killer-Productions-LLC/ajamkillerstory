@@ -431,6 +431,7 @@ li:hover {
   gap: 1.2rem;
   width: 100%;
   margin: 1.5rem auto;
+  max-width: 600px;
 }
 
 .path-button {
@@ -441,6 +442,7 @@ li:hover {
   flex-direction: column;
   gap: 0.5rem;
   cursor: pointer;
+  box-sizing: border-box;
 }
 
 .path-button:hover {
@@ -818,6 +820,28 @@ li:hover {
     padding: 0.5rem;
   }
   
+  .header {
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .header-left {
+    align-items: center;
+  }
+  
+  .header-right {
+    position: static;
+    margin-top: 1rem;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+  }
+  
+  .logo {
+    margin-left: 0;
+    align-self: center;
+  }
+  
   .main-content, 
   .narrative-section,
   .nft-preview,
@@ -830,6 +854,15 @@ li:hover {
   
   .path-button {
     padding: 1.2rem;
+    text-align: center;
+  }
+  
+  .path-title {
+    font-size: 1.1rem;
+  }
+  
+  .path-description {
+    font-size: 0.9rem;
   }
   
   .metadata-uri {
@@ -851,12 +884,17 @@ li:hover {
   
   .path-selection {
     gap: 0.8rem;
+    padding: 0 0.5rem;
   }
 }
 
 @media (max-width: 480px) {
   .app-container {
     padding: 0.25rem;
+  }
+  
+  .header-image {
+    max-width: 95%;
   }
   
   .main-content,
@@ -866,10 +904,13 @@ li:hover {
     width: calc(100% - 1rem);
     padding: 1rem;
     margin: 0.25rem auto;
+    box-sizing: border-box;
   }
   
   .path-button {
     padding: 1rem;
+    width: 100%;
+    box-sizing: border-box;
   }
   
   .process-steps::before {
@@ -892,6 +933,7 @@ li:hover {
 @media (max-width: 768px), (orientation: portrait) {
   .app-container {
     background-image: url("https://bafybeihk575tnym2hpgrzwyiapdbrce32kehmf6tio73xlgmcjuqkpq5u4.ipfs.dweb.link?filename=9x16backgrounddktj.jpeg");
+    background-position: center center;
   }
 }
 
@@ -978,4 +1020,52 @@ p, h2, h3, h4, .path-title, .path-description, .step-name, button, .wallet-addre
 
 .token-award-status.error {
   border-left-color: #f44336;
+}
+
+/* Mobile view specific styles */
+.mobile-view {
+  text-align: center;
+}
+
+.mobile-view .header {
+  width: 100%;
+  padding: 0.5rem;
+  box-sizing: border-box;
+}
+
+.mobile-view .main-content {
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+.mobile-view .path-selection {
+  flex-direction: column;
+  align-items: center;
+}
+
+.mobile-view .path-button {
+  width: 100%;
+  max-width: 400px;
+  margin: 0.5rem auto;
+}
+
+.mobile-view .narrative-section {
+  width: 100%;
+  max-width: 400px;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+.mobile-view .nft-preview {
+  width: 100%;
+  max-width: 400px;
+  margin: 1rem auto;
+  box-sizing: border-box;
+}
+
+.mobile-view .mint-container {
+  width: 100%;
+  box-sizing: border-box;
 }
