@@ -124,6 +124,32 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
     const baseTokenUri = "ipfs://QmfS4CpKMBQgiJKXPoGHdQsgKYSEhDJar2vpn4zVH81fSK/0";
     const baseMediaUri = "ipfs://QmQwVHy35zjGRqLiVCrnV23BsYfLvhTgvWTmkwFfsR4Jkn/Mystic%20enchanting%20logo%20depicting%20Cannabis%20is%20Medicine%20in%20gentle%20color%20contrasts%20and%20a%20dreamlike%20atmosphere%2C%20otherworldly%20ethereal%20quality%2C%20geometric%20shapes%2C%20clean%20lines%2C%20balanced%20symmetry%2C%20visual%20clarity.jpeg";
 
+    // Function to show notifications
+    const showNotification = (type: 'success' | 'error' | 'info', message: string) => {
+        setNotification({ type, message });
+        // Auto-hide after 5 seconds
+        setTimeout(() => setNotification(null), 5000);
+    };
+
+    const handlePathSelection = async (path: string) => {
+        // Allow path selection without requiring address
+        setSelectedPath(path);
+        setCurrentQuestionIndex(0);
+        setAllAnswers([]);
+        setFinalNarrative("");
+        setCurrentAnswer("");
+        setIsFinalized(false);
+        
+        // If address is available, clear narrative data
+        if (address) {
+            try {
+                await clearNarrativeData();
+            } catch (error) {
+                console.error("Error clearing narrative data:", error);
+            }
+        }
+    };
+
     // Add clearNarrativeData function
     const clearNarrativeData = async () => {
         if (!address) return;
@@ -169,46 +195,26 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
         }
     };
 
-    // Function to show notifications
-    const showNotification = (type: 'success' | 'error' | 'info', message: string) => {
-        setNotification({ type, message });
-        // Auto-hide after 5 seconds
-        setTimeout(() => setNotification(null), 5000);
-    };
-
-    const handlePathSelection = async (path: string) => {
-        if (!address) {
-            showNotification('error', 'Please connect your wallet.');
-            return;
-        }
-        
-        // Clear existing narrative data before setting new path
-        await clearNarrativeData();
-        
-        setSelectedPath(path);
-        setCurrentQuestionIndex(0);
-        setAllAnswers([]);
-        setFinalNarrative("");
-        setCurrentAnswer("");
-        setIsFinalized(false);
-    };
-
     const handleAnswerSubmit = async () => {
-        if (!address) {
-            showNotification('error', 'Please connect your wallet.');
-            return;
-        }
         if (!currentAnswer.trim()) {
             showNotification('error', 'Please enter an answer.');
             return;
         }
+        
         setIsSubmitting(true);
+        
         try {
             let answerToSubmit = currentAnswer;
             if (allAnswers.length === 0 && selectedPath) {
                 answerToSubmit = `Path ${selectedPath}: ${currentAnswer}`;
             }
-            await updateNarrative(address, answerToSubmit);
+            
+            // Only call the API if we have an address
+            if (address) {
+                await updateNarrative(address, answerToSubmit);
+            }
+            
+            // Always update local state
             setAllAnswers((prev) => [...prev, answerToSubmit]);
             setCurrentQuestionIndex((prev) => prev + 1);
             setCurrentAnswer("");
@@ -223,6 +229,7 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
             console.error("Error updating narrative:", error);
             showNotification('error', 'Error updating narrative. Please try again.');
         }
+        
         setIsSubmitting(false);
     };
 
@@ -231,47 +238,52 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
             showNotification('error', 'Please answer all questions before finalizing.');
             return;
         }
+        
         setIsFinalizing(true);
+        
         try {
             showNotification('info', 'Finalizing your narrative...');
-            const result = await finalizeNarrative(address as string);
             
-            // Extract narrative text, handling different response formats
             let narrativeText = "";
-            if (result.data && result.data.narrativeText) {
-                narrativeText = result.data.narrativeText;
-            } else if (result.response) {
-                narrativeText = result.response;
-            } else if (typeof result === 'string') {
-                narrativeText = result;
+            
+            // Only call the API if we have an address
+            if (address) {
+                const result = await finalizeNarrative(address);
+                
+                // Extract narrative text, handling different response formats
+                if (result.data && result.data.narrativeText) {
+                    narrativeText = result.data.narrativeText;
+                } else if (result.response) {
+                    narrativeText = result.response;
+                } else if (typeof result === 'string') {
+                    narrativeText = result;
+                }
+            } else {
+                // Generate a simple narrative if no address (for demo purposes)
+                narrativeText = `This is a sample narrative for path ${selectedPath}. In a real app, this would be generated by an API based on your answers.`;
             }
             
             if (!narrativeText) {
-                console.error("No narrative text returned:", result);
                 throw new Error("No narrative text returned from the server");
             }
             
-            if (narrativeText) {
-                // Clean up the narrative if it appears to be truncated
-                const cleanedNarrative = cleanupTruncatedNarrative(narrativeText);
-                console.log("Final narrative length:", cleanedNarrative.length);
-                setFinalNarrative(cleanedNarrative);
-                
-                // Calculate Mojo score based on the path
-                const score = calculateMojoScore(selectedPath);
-                setMojoScore(score);
-                
-                setIsFinalized(true);
-                showNotification('success', 'Narrative finalized! Now you can mint your NFT.');
-                
-                // Use the verified token URI from successful mint
-                onNarrativeFinalized({
-                    metadataUri: baseTokenUri,
-                    narrativePath: selectedPath,
-                });
-            } else {
-                showNotification('error', 'No narrative returned. Please try again.');
-            }
+            // Clean up the narrative if it appears to be truncated
+            const cleanedNarrative = cleanupTruncatedNarrative(narrativeText);
+            console.log("Final narrative length:", cleanedNarrative.length);
+            setFinalNarrative(cleanedNarrative);
+            
+            // Calculate Mojo score based on the path
+            const score = calculateMojoScore(selectedPath);
+            setMojoScore(score);
+            
+            setIsFinalized(true);
+            showNotification('success', 'Narrative finalized! Now you can mint your NFT.');
+            
+            // Use the verified token URI from successful mint
+            onNarrativeFinalized({
+                metadataUri: baseTokenUri,
+                narrativePath: selectedPath,
+            });
         } catch (error) {
             console.error("Error finalizing narrative:", error);
             showNotification('error', 'Error finalizing narrative. Please try again.');
@@ -318,14 +330,11 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
     };
 
     const handleResetProcess = async () => {
-        if (!address) {
-            showNotification('error', 'Please connect your wallet.');
-            return;
-        }
-
         if (window.confirm("This will reset your current progress. Continue?")) {
-            // Clear existing narrative data before resetting state
-            await clearNarrativeData();
+            // Clear existing narrative data if address is available
+            if (address) {
+                await clearNarrativeData();
+            }
             
             setSelectedPath("");
             setCurrentQuestionIndex(0);
@@ -363,10 +372,6 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
         return null;
     };
 
-    const renderProcessingStatus = () => {
-        return null;
-    };
-
     // Render notification
     const renderNotification = () => {
         if (!notification) return null;
@@ -382,7 +387,6 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
     return (
         <div className="narrative-builder">
             {renderNotification()}
-            {renderProcessingStatus()}
             
             {!selectedPath ? (
                 <div className="narrative-section">

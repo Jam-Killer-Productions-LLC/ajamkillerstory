@@ -21,7 +21,7 @@ const contract = getContract({
   address: "0xfA2A3452D86A9447e361205DFf29B1DD441f1821",
 });
 
-// Use the already created client in ThirdwebProvider
+// Use the already created client in ThirdwebProvider with clientId
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <ThirdwebProvider 

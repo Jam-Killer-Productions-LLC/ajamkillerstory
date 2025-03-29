@@ -35,21 +35,12 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           />
         </div>
         <div className="header-right">
-          {!address ? (
-            <ConnectWallet className="connect-button" />
-          ) : (
-            <div className="wallet-info">
-              <p className="wallet-address">{address.slice(0, 6)}...{address.slice(-4)}</p>
-            </div>
-          )}
+          <ConnectWallet className="connect-button" />
         </div>
       </header>
       <main className="main-content">
-        {address ? children : (
-          <div className="connect-prompt">
-            <p>Please connect your wallet to continue</p>
-          </div>
-        )}
+        {/* Show content regardless of wallet connection status */}
+        {children}
       </main>
     </div>
   );

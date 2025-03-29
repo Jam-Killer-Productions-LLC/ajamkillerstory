@@ -12,7 +12,6 @@ function App({ contract }: AppProps) {
   const handleNarrativeFinalized = (data: NarrativeFinalizedData) => {
     console.log('Narrative finalized:', data);
     // Here you can handle the finalized narrative data
-    // For example, you might want to mint an NFT or update the UI
   };
 
   return (
