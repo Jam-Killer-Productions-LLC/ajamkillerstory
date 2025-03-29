@@ -403,7 +403,11 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
                         </button>
                     </div>
                 </div>
+            ) : currentQuestionIndex < narrativePaths[selectedPath].length ? (
+                // Show questions if not all are answered
+                renderQuestion()
             ) : (
+                // Show finalize narrative only after all questions are answered
                 <div className="narrative-section">
                     <h3>Your Final Narrative</h3>
                     <p>{finalNarrative}</p>
