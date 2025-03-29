@@ -243,6 +243,10 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
     };
 
     const handleFinalize = async () => {
+        if (currentQuestionIndex < narrativePaths[selectedPath].length) {
+            showNotification('error', 'Please answer all questions before finalizing.');
+            return;
+        }
         setIsFinalizing(true);
         try {
             showNotification('info', 'Finalizing your narrative...');
