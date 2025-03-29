@@ -291,17 +291,28 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
                 metadataUri: metadataUri,
                 narrativePath: narrativePath
             });
-            
+
+            // Verify metadataUri format before sending
+            if (!metadataUri.startsWith("ipfs://")) {
+                throw new Error(`Invalid metadata URI format: ${metadataUri}. Must start with ipfs://`);
+            }
+
+            console.log("URI looks valid, proceeding with finalizeNFT call");
+
             // Execute the transaction with finalizeNFT 
             const tx = await finalizeNFT({ 
                 args: [
                     address, 
-                    String(metadataUri), // Ensure it's a string
-                    String(narrativePath) // Ensure it's a string
-                ]
+                    metadataUri, // Use the URI directly - it's already a string
+                    narrativePath
+                ],
+                // Set explicit overrides for transaction
+                overrides: {
+                    gasLimit: 1200000, // Very high gas limit for Optimism
+                }
             });
             
-            console.log("finalizeNFT transaction submitted, waiting for confirmation...");
+            console.log("finalizeNFT transaction submitted:", tx);
             
             // Make sure we have a transaction receipt
             if (!tx || !tx.receipt) {
@@ -361,7 +372,16 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
             } else if (errorMsg.includes("user rejected") || errorMsg.includes("user denied")) {
                 errorMsg = "Transaction was rejected in your wallet.";
             } else if (errorMsg.toLowerCase().includes("revert")) {
-                errorMsg = `Transaction reverted by the contract. Possible reasons: already minted, contract paused, or invalid parameters. Details: ${errorMsg}`;
+                // Check for specific contract error messages
+                if (errorMsg.includes("already minted") || errorMsg.includes("hasFinalNFT")) {
+                    errorMsg = "You have already minted an NFT with this wallet address.";
+                } else if (errorMsg.includes("paused")) {
+                    errorMsg = "The contract is currently paused. Please try again later.";
+                } else if (errorMsg.includes("invalid")) {
+                    errorMsg = "Invalid parameters provided to the contract. Please check your narrative path and metadata URI.";
+                } else {
+                    errorMsg = `Transaction reverted by the contract. Details: ${errorMsg}`;
+                }
             } else if (error.cause && error.cause.issues) {
                 // Handle validation errors
                 const issues = error.cause.issues;
@@ -369,7 +389,7 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
             } else if (errorMsg.includes("network") || errorMsg.includes("connection")) {
                 errorMsg = "Network connection issue. Please check your internet connection and try again.";
             } else if (errorMsg.includes("gas")) {
-                errorMsg = "Gas estimation failed. This might be due to contract constraints or network congestion.";
+                errorMsg = "Gas estimation failed. This might be due to contract constraints or network congestion. Try increasing the gas limit.";
             }
             
             setErrorMessage(errorMsg);

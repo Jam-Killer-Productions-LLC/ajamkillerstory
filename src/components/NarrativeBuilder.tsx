@@ -410,14 +410,25 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
         showNotification('info', 'Uploading metadata to IPFS...');
         
         try {
+            // Validate image data
+            if (!imageData.startsWith('data:image/') && !imageData.startsWith('ipfs://') && !imageData.startsWith('https://')) {
+                console.error('Invalid image data format:', imageData.substring(0, 50) + '...');
+                showNotification('error', 'Invalid image data format. The image must be a valid data URI, IPFS URI, or HTTPS URL.');
+                return;
+            }
+            
+            console.log('Image data format validation passed');
+            
             // Calculate mojo score based on path
             const mojoScore = calculateMojoScore(selectedPath);
             console.log(`Adding Mojo Score: ${mojoScore} to metadata`);
             
+            // Create rich metadata with proper structure
             const metadata = {
                 name: "Don't Kill The Jam NFT",
                 description: finalNarrative,
                 image: imageData, // Use the image data directly as it already has the correct prefix
+                external_url: "https://dontkillthejam.com",
                 attributes: [
                     {
                         trait_type: "Path",
@@ -426,14 +437,28 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
                     {
                         trait_type: "Mojo Score",
                         value: mojoScore
+                    },
+                    {
+                        trait_type: "Created",
+                        value: new Date().toISOString().split('T')[0]
                     }
                 ]
             };
             
+            console.log('Uploading metadata with image length:', imageData.length);
+            
+            // Upload metadata to IPFS with retry
             const metadataResult = await uploadMetadata(metadata, address);
             console.log("Metadata uploaded:", metadataResult);
             
             if (metadataResult.uri) {
+                // Validate URI format
+                if (!metadataResult.uri.startsWith('ipfs://')) {
+                    console.error("Invalid URI format received:", metadataResult.uri);
+                    showNotification('error', 'Invalid metadata URI format received from server.');
+                    return;
+                }
+                
                 setMetadataUri(metadataResult.uri);
                 setProcessingStep("mint");
                 showNotification('success', 'Metadata uploaded successfully! You can now mint your NFT.');
@@ -443,13 +468,17 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
                     metadataUri: metadataResult.uri,
                     narrativePath: selectedPath,
                 });
+                
+                // Log the complete URI for debugging
+                console.log('IPFS Metadata URI for minting:', metadataResult.uri);
             } else {
                 console.error("No URI found in response:", metadataResult);
                 throw new Error("No metadata URI returned");
             }
         } catch (error) {
             console.error("Error uploading metadata:", error);
-            showNotification('error', 'Error uploading metadata. Please try again.');
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            showNotification('error', `Error uploading metadata: ${errorMessage}`);
             setProcessingStep("metadata");
         }
     };
