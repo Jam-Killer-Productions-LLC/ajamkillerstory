@@ -47,32 +47,12 @@ export const checkExistingImage = async (userId: string): Promise<GenerateImageR
   }
 };
 
-// Delete existing image if needed
-export const deleteExistingImage = async (userId: string): Promise<boolean> => {
-  try {
-    console.log(`Deleting existing image for user: ${userId}`);
-    const response = await fetch(`https://nftartist.producerprotocol.pro/image/${userId}`, {
-      method: 'DELETE',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-
-    console.log(`Delete image response status: ${response.status}`);
-    return response.ok;
-  } catch (error) {
-    console.error('Error deleting existing image:', error);
-    return false;
-  }
-};
-
 export const generateImage = async (prompt: string, userId: string, forceNew = false): Promise<GenerateImageResponse> => {
   console.log(`Generating image with prompt: "${prompt.substring(0, 100)}..." for userId: ${userId}`);
   
   // Check if we need to delete existing image first or use existing one
   if (forceNew) {
     console.log('Force new image requested, deleting existing image if any');
-    await deleteExistingImage(userId);
   } else {
     // Check for existing image
     console.log('Checking for existing image');
@@ -134,7 +114,7 @@ export const generateImageWithRetry = async (
       if (forceNew && attempt === 1) {
         console.log("Forcing new image, attempting to delete existing");
         try {
-          await deleteExistingImage(userId);
+          // Remove the reference to `deleteExistingImage`
         } catch (deleteErr) {
           console.warn("Failed to delete existing image, but continuing:", deleteErr);
         }

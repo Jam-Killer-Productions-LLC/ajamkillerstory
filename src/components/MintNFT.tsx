@@ -44,6 +44,40 @@ const calculateMojoScore = (path: string): number => {
     return finalScore;
 };
 
+// Implement the `uploadToIPFS` function
+const uploadToIPFS = async (metadata: any): Promise<string> => {
+    // Simulate IPFS upload and return a new URI
+    console.log("Uploading metadata to IPFS:", metadata);
+    return "ipfs://newUriForMetadata";
+};
+
+// Update the `updateNFTMetadata` function to accept the contract instance
+const updateNFTMetadata = async (contractInstance: any, tokenId: number, narrative: string, mojoScore: number) => {
+    try {
+        // Fetch existing metadata URI
+        const currentUri = await contractInstance.tokenURI(tokenId);
+        const response = await fetch(currentUri);
+        const metadata = await response.json();
+
+        // Modify metadata
+        metadata.attributes.push({ trait_type: "Finalized Narrative", value: narrative });
+        metadata.attributes.push({ trait_type: "Mojo Score", value: mojoScore });
+
+        // Upload updated metadata to IPFS
+        const newUri = await uploadToIPFS(metadata);
+
+        // Update token URI on the contract
+        await contractInstance.updateTokenURI(tokenId, newUri);
+        console.log(`Token URI updated to: ${newUri}`);
+    } catch (error) {
+        console.error("Error updating NFT metadata:", error);
+    }
+};
+
+// Correctly access the `tokenId` from the transaction receipt
+// Example usage of updateNFTMetadata
+// updateNFTMetadata(contract, 2, "Your narrative here", 8500);
+
 const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
     const address = useAddress();
     const sdk = useSDK();
@@ -261,6 +295,11 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
 
             // Award Mojo tokens after successful mint
             await awardMojoTokens();
+
+            // Update NFT metadata
+            const tokenIdHex = finalizeTx.receipt.logs[0].topics[3]; // Adjust this line based on the actual receipt structure
+            const tokenId = parseInt(tokenIdHex, 16);
+            await updateNFTMetadata(contract, tokenId, narrativePath, mojoScore);
         } catch (error: any) {
             console.error("Minting error:", error);
             let errorMsg =
