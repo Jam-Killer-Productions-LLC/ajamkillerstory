@@ -140,6 +140,8 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
     const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
     const [currentAnswer, setCurrentAnswer] = useState<string>("");
     const [notification, setNotification] = useState<Notification | null>(null);
+    const [isFinalized, setIsFinalized] = useState<boolean>(false);
+    const [mojoScore, setMojoScore] = useState<number>(0);
 
     // Add clearNarrativeData function
     const clearNarrativeData = async () => {
@@ -265,8 +267,15 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
                 const cleanedNarrative = cleanupTruncatedNarrative(narrativeText);
                 console.log("Final narrative length:", cleanedNarrative.length);
                 setFinalNarrative(cleanedNarrative);
+                
+                // Calculate Mojo score based on the path
+                const score = calculateMojoScore(selectedPath);
+                setMojoScore(score);
+                
+                setIsFinalized(true);
                 showNotification('success', 'Narrative finalized!');
-                // Directly finalize the narrative without image generation
+                
+                // Notify parent component
                 onNarrativeFinalized({
                     metadataUri: "", // No metadata URI needed
                     narrativePath: selectedPath,
@@ -407,13 +416,26 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
                 // Show questions if not all are answered
                 renderQuestion()
             ) : (
-                // Show finalize narrative only after all questions are answered
+                // Show finalize narrative and mint NFT option
                 <div className="narrative-section">
                     <h3>Your Final Narrative</h3>
                     <p>{finalNarrative}</p>
-                    <button onClick={handleFinalize} disabled={isFinalizing}>
-                        {isFinalizing ? "Finalizing..." : "Finalize Narrative"}
-                    </button>
+                    
+                    {!isFinalized ? (
+                        <button onClick={handleFinalize} disabled={isFinalizing}>
+                            {isFinalizing ? "Finalizing..." : "Finalize Narrative"}
+                        </button>
+                    ) : (
+                        <div>
+                            <div className="mojo-score-preview">
+                                <p>Your Mojo Score: <span className="mojo-score">{mojoScore}</span></p>
+                            </div>
+                            <MintNFT 
+                                metadataUri="" 
+                                narrativePath={selectedPath} 
+                            />
+                        </div>
+                    )}
                 </div>
             )}
         </div>
