@@ -44,39 +44,12 @@ const calculateMojoScore = (path: string): number => {
     return finalScore;
 };
 
-// Implement the `uploadToIPFS` function
+// Simplified uploadToIPFS function - we won't actually upload since we're using the existing base token
 const uploadToIPFS = async (metadata: any): Promise<string> => {
-    // Simulate IPFS upload and return a new URI
-    console.log("Uploading metadata to IPFS:", metadata);
-    return "ipfs://newUriForMetadata";
+    console.log("Would upload metadata in a real implementation:", metadata);
+    // For testing, just return the original URI without modification
+    return metadata.image || "ipfs://baseUriForMetadata";
 };
-
-// Update the `updateNFTMetadata` function to accept the contract instance
-const updateNFTMetadata = async (contractInstance: any, tokenId: number, narrative: string, mojoScore: number) => {
-    try {
-        // Fetch existing metadata URI
-        const currentUri = await contractInstance.tokenURI(tokenId);
-        const response = await fetch(currentUri);
-        const metadata = await response.json();
-
-        // Modify metadata
-        metadata.attributes.push({ trait_type: "Finalized Narrative", value: narrative });
-        metadata.attributes.push({ trait_type: "Mojo Score", value: mojoScore });
-
-        // Upload updated metadata to IPFS
-        const newUri = await uploadToIPFS(metadata);
-
-        // Update token URI on the contract
-        await contractInstance.updateTokenURI(tokenId, newUri);
-        console.log(`Token URI updated to: ${newUri}`);
-    } catch (error) {
-        console.error("Error updating NFT metadata:", error);
-    }
-};
-
-// Correctly access the `tokenId` from the transaction receipt
-// Example usage of updateNFTMetadata
-// updateNFTMetadata(contract, 2, "Your narrative here", 8500);
 
 const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
     const address = useAddress();
@@ -151,12 +124,17 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
         return (Number(fee) / 1e18).toFixed(6);
     };
 
-    // Function to award Mojo tokens
+    // Function to award Mojo tokens - log detailed information
     const awardMojoTokens = async () => {
         if (!address) return;
         
         try {
             setTokenAwardStatus("pending");
+            console.log("Starting Mojo token award process...");
+            console.log("Sending request to token reward endpoint with data:", {
+                address: address,
+                mojoScore: mojoScore
+            });
             
             const response = await fetch("https://mojotokenrewards.producerprotocol.pro/mint", {
                 method: "POST",
@@ -170,28 +148,32 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
                 }),
             });
             
-            // Try to parse response as JSON first
-            let errorData;
-            let responseText;
+            console.log("Token reward endpoint response status:", response.status);
             
+            // Try to parse response as JSON first
+            let responseText = await response.text();
+            console.log("Raw response:", responseText);
+            
+            let responseData;
             try {
-                responseText = await response.text();
-                errorData = JSON.parse(responseText);
+                responseData = JSON.parse(responseText);
+                console.log("Parsed response:", responseData);
             } catch (parseError) {
                 console.error("Failed to parse response as JSON:", responseText);
-                errorData = { error: responseText || "Unknown error" };
+                responseData = { error: responseText || "Unknown error" };
             }
             
             if (!response.ok) {
-                throw new Error(errorData.error || `Failed to mint tokens: ${response.status}`);
+                throw new Error(responseData.error || `Failed to mint tokens: ${response.status}`);
             }
             
             // If we made it here, the response is OK and parsed
-            if (errorData.success) {
-                setTokenTxHash(errorData.txHash);
+            if (responseData.success) {
+                setTokenTxHash(responseData.txHash || "No transaction hash provided");
                 setTokenAwardStatus("success");
+                console.log("Mojo tokens awarded successfully!", responseData);
             } else {
-                throw new Error(errorData.error || "Failed to award tokens");
+                throw new Error(responseData.error || "Failed to award tokens");
             }
             
         } catch (error: unknown) {
@@ -293,44 +275,20 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
             );
             setMintStatus("success");
 
-            // Award Mojo tokens after successful mint
-            await awardMojoTokens();
-
-            // Extract token ID safely from receipt
-            console.log("Transaction receipt:", finalizeTx.receipt);
-            let tokenId = 0;
-            
-            try {
-                // Try to find the token ID from logs
-                if (finalizeTx.receipt && finalizeTx.receipt.logs && finalizeTx.receipt.logs.length > 0) {
-                    // Look for Transfer event in logs (standard ERC721 event)
-                    const transferEvent = finalizeTx.receipt.logs.find(log => 
-                        log.topics && log.topics[0] === '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef'
-                    );
-                    
-                    if (transferEvent && transferEvent.topics && transferEvent.topics.length > 3) {
-                        // Standard Transfer event has tokenId at topics[3]
-                        const tokenIdHex = transferEvent.topics[3];
-                        tokenId = parseInt(tokenIdHex, 16);
-                        console.log("Found token ID from Transfer event:", tokenId);
-                    } else {
-                        // If standard method failed, try getting the most recent token from the contract
-                        tokenId = 2; // Default to token 2 as specified
-                        console.log("Using default token ID:", tokenId);
-                    }
-                } else {
-                    // Fallback to token 2
-                    tokenId = 2;
-                    console.log("No logs available, using default token ID:", tokenId);
+            // Set a small delay before awarding tokens to ensure the mint transaction is fully processed
+            setTimeout(async () => {
+                try {
+                    // Award Mojo tokens after successful mint
+                    await awardMojoTokens();
+                } catch (tokenError) {
+                    console.error("Error in delayed token award:", tokenError);
+                    setErrorMessage("Error awarding tokens: " + (tokenError instanceof Error ? tokenError.message : "Unknown error"));
+                    setTokenAwardStatus("error");
                 }
-            } catch (error) {
-                // If token extraction fails, use token 2
-                console.error("Error extracting token ID, using default:", error);
-                tokenId = 2;
-            }
-            
-            // Always update token 2's metadata
-            await updateNFTMetadata(contract, tokenId, narrativePath, mojoScore);
+            }, 3000); // 3 second delay
+
+            // We don't need to update metadata since we're using the base token's metadata
+            console.log("Using base token metadata, no updates needed");
         } catch (error: any) {
             console.error("Minting error:", error);
             let errorMsg =

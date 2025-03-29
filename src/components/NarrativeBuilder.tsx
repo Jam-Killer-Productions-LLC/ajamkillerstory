@@ -120,8 +120,9 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
     const [isFinalized, setIsFinalized] = useState<boolean>(false);
     const [mojoScore, setMojoScore] = useState<number>(0);
     
-    // Token 2's URI to use for all mints
-    const token2Uri = "ipfs://QmYBeiQoCoigVVdkppZasMUtDrDk6DFRya6G3CDkq8eR5Y";
+    // Base NFT token and media URIs - updated with exact URIs from successful mint
+    const baseTokenUri = "ipfs://QmfS4CpKMBQgiJKXPoGHdQsgKYSEhDJar2vpn4zVH81fSK/0";
+    const baseMediaUri = "ipfs://QmQwVHy35zjGRqLiVCrnV23BsYfLvhTgvWTmkwFfsR4Jkn/Mystic%20enchanting%20logo%20depicting%20Cannabis%20is%20Medicine%20in%20gentle%20color%20contrasts%20and%20a%20dreamlike%20atmosphere%2C%20otherworldly%20ethereal%20quality%2C%20geometric%20shapes%2C%20clean%20lines%2C%20balanced%20symmetry%2C%20visual%20clarity.jpeg";
 
     // Add clearNarrativeData function
     const clearNarrativeData = async () => {
@@ -256,9 +257,9 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
                 setIsFinalized(true);
                 showNotification('success', 'Narrative finalized!');
                 
-                // Use token 2's URI as the metadata URI
+                // Use the verified token URI from successful mint
                 onNarrativeFinalized({
-                    metadataUri: token2Uri,
+                    metadataUri: baseTokenUri,
                     narrativePath: selectedPath,
                 });
             } else {
@@ -413,7 +414,7 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
                                 <p>Your Mojo Score: <span className="mojo-score">{mojoScore}</span></p>
                             </div>
                             <MintNFT 
-                                metadataUri={token2Uri} 
+                                metadataUri={baseTokenUri} 
                                 narrativePath={selectedPath} 
                             />
                         </div>
