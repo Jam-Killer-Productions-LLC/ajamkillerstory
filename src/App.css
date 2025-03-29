@@ -1069,3 +1069,31 @@ p, h2, h3, h4, .path-title, .path-description, .step-name, button, .wallet-addre
   width: 100%;
   box-sizing: border-box;
 }
+
+/* Mint NFT Container Mobile Styles */
+.mobile-view .mint-nft-container {
+  width: 100%;
+  padding: 1rem;
+  box-sizing: border-box;
+}
+
+.mobile-view .mint-status {
+  padding: 0.8rem;
+  font-size: 0.9rem;
+}
+
+.mobile-view .error-details {
+  max-height: 80px;
+  font-size: 0.8rem;
+  word-break: break-word;
+}
+
+.mobile-view .mint-button {
+  width: 100%;
+  padding: 0.8rem;
+  margin: 0.8rem 0;
+}
+
+.mobile-view .mojo-score-preview {
+  padding: 0.8rem;
+}

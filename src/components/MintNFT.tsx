@@ -46,18 +46,17 @@ const calculateMojoScore = (path: string): number => {
 
 const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
     const address = useAddress();
-    const { contract } = useContract(NFT_CONTRACT_ADDRESS, contractAbi);
+    const sdk = useSDK();
+    
+    // Initialize contract
+    const { contract, isLoading: isContractLoading } = useContract(NFT_CONTRACT_ADDRESS, contractAbi);
     
     // Use finalizeNFT instead of mintNFT since we have the metadata URI from IPFS
     const { mutateAsync: finalizeNFT, isLoading: isPending } = useContractWrite(contract, "finalizeNFT");
-    const { data: mintFee } = useContractRead(contract, "MINT_FEE");
-    
-    // Get the SDK to access provider
-    const sdk = useSDK();
+    const { data: mintFee, isLoading: isMintFeeLoading } = useContractRead(contract, "MINT_FEE");
     
     // Setup Mojo token contract for awarding tokens
     const { contract: mojoContract } = useContract(MOJO_TOKEN_CONTRACT_ADDRESS);
-    const { mutateAsync: mintMojoTokens } = useContractWrite(mojoContract, "mintTo");
     
     const [mintStatus, setMintStatus] = useState<"idle" | "pending" | "success" | "error">("idle");
     const [txHash, setTxHash] = useState<string>("");
@@ -65,6 +64,40 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
     const [mojoScore, setMojoScore] = useState<number>(0);
     const [tokenAwardStatus, setTokenAwardStatus] = useState<"pending" | "success" | "error" | "idle">("idle");
     const [tokenTxHash, setTokenTxHash] = useState<string>("");
+    const [isWalletReady, setIsWalletReady] = useState<boolean>(false);
+    
+    // Check wallet readiness
+    useEffect(() => {
+        const checkWallet = async () => {
+            if (!address || !sdk) {
+                setIsWalletReady(false);
+                return;
+            }
+            
+            try {
+                const wallet = sdk.wallet;
+                if (!wallet) {
+                    setIsWalletReady(false);
+                    return;
+                }
+                
+                // Check if the wallet is properly connected
+                try {
+                    // Simple balance check to verify wallet connection
+                    const balance = await wallet.balance();
+                    setIsWalletReady(!!balance);
+                } catch (error) {
+                    console.error("Wallet connection check failed:", error);
+                    setIsWalletReady(false);
+                }
+            } catch (error) {
+                console.error("Error checking wallet readiness:", error);
+                setIsWalletReady(false);
+            }
+        };
+        
+        checkWallet();
+    }, [address, sdk]);
 
     // Initialize mojo score when narrative path is available
     useEffect(() => {
@@ -83,7 +116,18 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
 
     // Add a utility function to send the mint fee to the contract owner
     const sendMintFeeToOwner = async () => {
-        if (!address || !mintFee || !sdk) return null;
+        if (!address || !mintFee || !sdk) {
+            console.error("Missing required data for sending mint fee:", {
+                address: !!address,
+                mintFee: !!mintFee,
+                sdk: !!sdk
+            });
+            throw new Error("Wallet not ready or mint fee not loaded");
+        }
+        
+        if (!isWalletReady) {
+            throw new Error("Wallet not ready or properly connected");
+        }
         
         try {
             // Get the wallet client from SDK
@@ -92,17 +136,30 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
                 throw new Error("Wallet not available");
             }
             
-            // Send the transaction directly
+            console.log("Sending mint fee of", formatMintFee(mintFee), "ETH to", CONTRACT_OWNER_ADDRESS);
+            
+            // Send the transaction
             const tx = await wallet.transfer(
                 CONTRACT_OWNER_ADDRESS,
                 mintFee
             );
             
+            console.log("Mint fee transaction submitted:", tx);
+            
             console.log("Mint fee sent to contract owner:", tx);
             return tx;
         } catch (error) {
             console.error("Error sending mint fee to owner:", error);
-            throw error;
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            
+            // Check for common wallet errors and provide better messages
+            if (errorMessage.includes("insufficient funds")) {
+                throw new Error("Insufficient funds to cover the mint fee. Please add more ETH to your wallet.");
+            } else if (errorMessage.includes("user rejected")) {
+                throw new Error("Transaction was rejected in your wallet.");
+            } else {
+                throw error;
+            }
         }
     };
 
@@ -115,25 +172,38 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
             
             const response = await fetch("https://mojotokenrewards.producerprotocol.pro/mint", {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: { 
+                    "Content-Type": "application/json",
+                    "Accept": "application/json"
+                },
                 body: JSON.stringify({ 
                     address: address,
                     mojoScore: mojoScore 
                 }),
             });
             
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || "Failed to mint tokens");
+            // Try to parse response as JSON first
+            let errorData;
+            let responseText;
+            
+            try {
+                responseText = await response.text();
+                errorData = JSON.parse(responseText);
+            } catch (parseError) {
+                console.error("Failed to parse response as JSON:", responseText);
+                errorData = { error: responseText || "Unknown error" };
             }
             
-            const result = await response.json();
+            if (!response.ok) {
+                throw new Error(errorData.error || `Failed to mint tokens: ${response.status}`);
+            }
             
-            if (result.success) {
-                setTokenTxHash(result.txHash);
+            // If we made it here, the response is OK and parsed
+            if (errorData.success) {
+                setTokenTxHash(errorData.txHash);
                 setTokenAwardStatus("success");
             } else {
-                throw new Error(result.error || "Failed to award tokens");
+                throw new Error(errorData.error || "Failed to award tokens");
             }
             
         } catch (error: unknown) {
@@ -145,18 +215,39 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
     };
 
     const handleMint = async () => {
+        // Reset states
+        setErrorMessage("");
+        
+        // Validation checks
         if (!address) {
-            alert("Please connect your wallet");
+            setErrorMessage("Please connect your wallet");
+            return;
+        }
+
+        if (!isWalletReady) {
+            setErrorMessage("Your wallet is not properly connected. Please reconnect your wallet.");
             return;
         }
 
         if (!allowedPaths.includes(narrativePath)) {
-            alert("Invalid narrative path");
+            setErrorMessage("Invalid narrative path");
             return;
         }
 
         if (!metadataUri || !metadataUri.startsWith("ipfs://")) {
-            alert("Invalid metadata URI");
+            setErrorMessage("Invalid metadata URI");
+            return;
+        }
+        
+        // Check if contract is loaded
+        if (isContractLoading || !contract) {
+            setErrorMessage("Contract is still loading. Please wait.");
+            return;
+        }
+        
+        // Check if mint fee is loaded
+        if (isMintFeeLoading || mintFee === undefined) {
+            setErrorMessage("Mint fee information is still loading. Please wait.");
             return;
         }
 
@@ -165,6 +256,7 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
             setMojoScore(calculateMojoScore(narrativePath));
         }
 
+        // Start the minting process
         setMintStatus("pending");
         try {
             console.log("Minting with:", {
@@ -181,36 +273,24 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
             
             // First, send the mint fee to the contract owner instead of the contract
             console.log("Sending mint fee to contract owner:", CONTRACT_OWNER_ADDRESS);
-            const feeTx = await sendMintFeeToOwner();
-            console.log("Fee transaction:", feeTx);
+            
+            // We'll try to handle fee transaction separately for better error handling
+            let feeTx;
+            try {
+                feeTx = await sendMintFeeToOwner();
+                console.log("Fee transaction successful:", feeTx);
+            } catch (feeError) {
+                console.error("Fee transaction failed:", feeError);
+                const feeErrorMsg = feeError instanceof Error ? feeError.message : String(feeError);
+                throw new Error(`Failed to send mint fee: ${feeErrorMsg}`);
+            }
             
             // Now call the finalizeNFT function with the proper parameters
-            // finalizeNFT(address to, string finalURI, string path)
-            console.log("Raw values before formatting:", {
-                addressType: typeof address,
+            console.log("Preparing to call finalizeNFT with args:", {
                 address: address,
-                metadataUriType: typeof metadataUri,
                 metadataUri: metadataUri,
-                narrativePathType: typeof narrativePath,
                 narrativePath: narrativePath
             });
-            
-            console.log("Formatted arguments:", [
-                address, 
-                String(metadataUri), // Ensure it's a string
-                String(narrativePath) // Ensure it's a string
-            ]);
-            console.log("Types after formatting:", {
-                arg0Type: typeof address,
-                arg1Type: typeof metadataUri,
-                arg2Type: typeof narrativePath
-            });
-            
-            console.log("Contract call arguments JSON:", JSON.stringify([
-                address, 
-                String(metadataUri), // Ensure it's a string
-                String(narrativePath) // Ensure it's a string
-            ]));
             
             // Execute the transaction with finalizeNFT 
             const tx = await finalizeNFT({ 
@@ -218,14 +298,20 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
                     address, 
                     String(metadataUri), // Ensure it's a string
                     String(narrativePath) // Ensure it's a string
-                ],
-                overrides: {}
+                ]
             });
+            
+            console.log("finalizeNFT transaction submitted, waiting for confirmation...");
+            
+            // Make sure we have a transaction receipt
+            if (!tx || !tx.receipt) {
+                throw new Error("Transaction was submitted but no receipt was returned");
+            }
             
             // Set up event listeners for the transaction
             listenForTransactionEvents(tx.receipt.transactionHash);
             
-            console.log("Full transaction receipt:", JSON.stringify(tx.receipt));
+            console.log("Transaction confirmed, receipt:", tx.receipt);
             setTxHash(tx.receipt.transactionHash);
             setMintStatus("success");
             
@@ -272,7 +358,7 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
             
             if (errorMsg.includes("insufficient funds")) {
                 errorMsg = "Insufficient funds to cover the mint fee and gas. Please add more ETH to your wallet.";
-            } else if (errorMsg.includes("user rejected")) {
+            } else if (errorMsg.includes("user rejected") || errorMsg.includes("user denied")) {
                 errorMsg = "Transaction was rejected in your wallet.";
             } else if (errorMsg.toLowerCase().includes("revert")) {
                 errorMsg = `Transaction reverted by the contract. Possible reasons: already minted, contract paused, or invalid parameters. Details: ${errorMsg}`;
@@ -280,6 +366,10 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
                 // Handle validation errors
                 const issues = error.cause.issues;
                 errorMsg = `Validation error: ${JSON.stringify(issues)}`;
+            } else if (errorMsg.includes("network") || errorMsg.includes("connection")) {
+                errorMsg = "Network connection issue. Please check your internet connection and try again.";
+            } else if (errorMsg.includes("gas")) {
+                errorMsg = "Gas estimation failed. This might be due to contract constraints or network congestion.";
             }
             
             setErrorMessage(errorMsg);
@@ -326,6 +416,7 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
                         {tokenAwardStatus === "error" && (
                             <div className="token-award-status error">
                                 <p>Failed to award Mojo tokens. Please contact support.</p>
+                                {errorMessage && <p className="error-details">{errorMessage}</p>}
                             </div>
                         )}
                     </div>
@@ -342,9 +433,23 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
         }
     };
 
+    // Additional contract/wallet status messages
+    const renderPreMintStatus = () => {
+        if (isContractLoading) {
+            return <p className="mint-info">Loading contract data...</p>;
+        }
+        
+        if (!isWalletReady && address) {
+            return <p className="mint-info">Please ensure your wallet is properly connected to the Optimism network.</p>;
+        }
+        
+        return null;
+    };
+
     return (
         <div className="mint-nft-container">
             {renderMintStatus()}
+            {renderPreMintStatus()}
             
             {mintStatus !== "success" && (
                 <div className="mojo-score-preview">
@@ -355,7 +460,7 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
             
             <button 
                 onClick={handleMint}
-                disabled={isPending || !address || mintStatus === "pending" || mintStatus === "success"}
+                disabled={isPending || !address || mintStatus === "pending" || mintStatus === "success" || isContractLoading || !isWalletReady}
                 className={`mint-button ${mintStatus === "success" ? "success" : ""}`}
             >
                 {isPending || mintStatus === "pending" ? "Minting..." : 
