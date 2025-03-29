@@ -423,11 +423,11 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
             const mojoScore = calculateMojoScore(selectedPath);
             console.log(`Adding Mojo Score: ${mojoScore} to metadata`);
             
-            // Create rich metadata with proper structure
+            // Create metadata with the exact structure expected by the worker
             const metadata = {
                 name: `Don't Kill The Jam NFT - ${address.slice(0, 6)}`,
                 description: finalNarrative,
-                image: imageData, // Use the image data directly as it already has the correct prefix
+                image: imageData,
                 external_url: "https://dontkillthejam.com",
                 attributes: [
                     {
@@ -447,11 +447,10 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
             
             console.log('Uploading metadata with image length:', imageData.length);
             
-            // Upload metadata to IPFS with retry
+            // Upload metadata to IPFS
             const metadataResult = await uploadMetadata(metadata, address);
             console.log("Metadata upload response:", metadataResult);
             
-            // Check for warning in response (possible fallback URI)
             if (metadataResult.warning) {
                 showNotification('info', `IPFS Note: ${metadataResult.warning}`);
             }
