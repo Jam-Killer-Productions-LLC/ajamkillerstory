@@ -27,14 +27,10 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     <div className={`app-container ${isMobile ? 'mobile-view' : ''}`}>
       <header className="header">
         <div className="header-left">
-          <img 
-            src="https://bafybeia4ayg7qsaryrzk7ntixd4ombsevup74vyxcyat3v5ph2xu6yx2le.ipfs.dweb.link?filename=dktjlogo.png" 
-            alt="Jam Killer Logo" 
-            className="logo"
-          />
+          {/* Logo removed */}
           <img 
             src="https://bafybeidoee5nze6v6s2kkddecqmtiahp7he4jcu3au7ju3e5z43ihpfp3a.ipfs.dweb.link?filename=dontkillthejamheadernew.png" 
-            alt="Jam Killer Header" 
+            alt="Don't Kill The Jam Header" 
             className="header-image"
           />
         </div>
