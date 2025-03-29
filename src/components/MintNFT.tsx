@@ -51,8 +51,11 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
     // Initialize contract
     const { contract, isLoading: isContractLoading } = useContract(NFT_CONTRACT_ADDRESS, contractAbi);
     
-    // Use finalizeNFT instead of mintNFT since we have the metadata URI from IPFS
-    const { mutateAsync: finalizeNFT, isLoading: isPending } = useContractWrite(contract, "finalizeNFT");
+    // Setup both needed contract functions
+    const { mutateAsync: mintNFT, isLoading: isMintPending } = useContractWrite(contract, "mintNFT");
+    const { mutateAsync: finalizeNFT, isLoading: isFinalizePending } = useContractWrite(contract, "finalizeNFT");
+    const isPending = isMintPending || isFinalizePending;
+    
     const { data: mintFee, isLoading: isMintFeeLoading } = useContractRead(contract, "MINT_FEE");
     
     // Setup Mojo token contract for awarding tokens
@@ -136,12 +139,16 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
                 throw new Error("Wallet not available");
             }
             
-            console.log("Sending mint fee of", formatMintFee(mintFee), "ETH to", CONTRACT_OWNER_ADDRESS);
+            // Convert mintFee to a string to avoid type issues
+            const mintFeeValue = mintFee.toString();
             
-            // Send the transaction
+            console.log("Sending mint fee of", formatMintFee(mintFee), "ETH to", CONTRACT_OWNER_ADDRESS);
+            console.log("Mint fee value type:", typeof mintFeeValue, "Value:", mintFeeValue);
+            
+            // Send the transaction with string value
             const tx = await wallet.transfer(
                 CONTRACT_OWNER_ADDRESS,
-                mintFee
+                mintFeeValue
             );
             
             console.log("Mint fee transaction submitted:", tx);
@@ -271,8 +278,8 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
             console.log("Contract ready status:", !!contract);
             console.log("Contract address:", NFT_CONTRACT_ADDRESS);
             
-            // First, send the mint fee to the contract owner instead of the contract
-            console.log("Sending mint fee to contract owner:", CONTRACT_OWNER_ADDRESS);
+            // First, send the mint fee to the contract owner 
+            console.log("Step 1: Sending mint fee to contract owner:", CONTRACT_OWNER_ADDRESS);
             
             // We'll try to handle fee transaction separately for better error handling
             let feeTx;
@@ -285,51 +292,87 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
                 throw new Error(`Failed to send mint fee: ${feeErrorMsg}`);
             }
             
-            // Now call the finalizeNFT function with the proper parameters
-            console.log("Preparing to call finalizeNFT with args:", {
-                address: address,
-                metadataUri: metadataUri,
-                narrativePath: narrativePath
-            });
-
-            // Verify metadataUri format before sending
-            if (!metadataUri.startsWith("ipfs://")) {
-                throw new Error(`Invalid metadata URI format: ${metadataUri}. Must start with ipfs://`);
-            }
-
-            console.log("URI looks valid, proceeding with finalizeNFT call");
-
-            // Execute the transaction with finalizeNFT 
-            const tx = await finalizeNFT({ 
+            // Then mint the NFT to get the token ID without sending additional value
+            console.log("Step 2: Creating NFT with mintNFT for path:", narrativePath);
+            
+            const mintTx = await mintNFT({ 
                 args: [
                     address, 
-                    metadataUri, // Use the URI directly - it's already a string
                     narrativePath
                 ],
-                // Set explicit overrides for transaction
                 overrides: {
-                    gasLimit: 1200000, // Very high gas limit for Optimism
+                    gasLimit: 1000000, // High gas limit
                 }
             });
             
-            console.log("finalizeNFT transaction submitted:", tx);
+            console.log("mintNFT transaction submitted:", mintTx);
             
             // Make sure we have a transaction receipt
-            if (!tx || !tx.receipt) {
-                throw new Error("Transaction was submitted but no receipt was returned");
+            if (!mintTx || !mintTx.receipt) {
+                throw new Error("mintNFT transaction was submitted but no receipt was returned");
             }
             
-            // Set up event listeners for the transaction
-            listenForTransactionEvents(tx.receipt.transactionHash);
+            // Now finalize NFT with metadata URI
+            try {
+                // Look for the NFTMinted event to get the token ID
+                const events = mintTx.receipt.logs;
+                console.log("Transaction events:", events);
+                
+                // Since we can't easily parse events here, we'll use the address's last token
+                console.log("Using latest token for the address");
+                
+                // Now finalize NFT with metadata URI
+                console.log("Step 3: Finalizing NFT with metadata URI");
+                console.log("Metadata URI:", metadataUri);
+                
+                // Verify metadataUri format before sending
+                if (!metadataUri.startsWith("ipfs://")) {
+                    throw new Error(`Invalid metadata URI format: ${metadataUri}. Must start with ipfs://`);
+                }
+                
+                // Call finalizeNFT with the metadata URI that includes the mojo score
+                const finalizeTx = await finalizeNFT({ 
+                    args: [
+                        address, 
+                        metadataUri,
+                        narrativePath
+                    ],
+                    overrides: {
+                        gasLimit: 1000000, // High gas limit
+                    }
+                });
+                
+                console.log("finalizeNFT transaction submitted:", finalizeTx);
+                
+                // Make sure we have a transaction receipt
+                if (!finalizeTx || !finalizeTx.receipt) {
+                    throw new Error("finalizeNFT transaction was submitted but no receipt was returned");
+                }
+                
+                // Set the transaction hash to the finalize transaction
+                setTxHash(finalizeTx.receipt.transactionHash);
+                
+                // Set up event listeners for the finalize transaction
+                listenForTransactionEvents(finalizeTx.receipt.transactionHash);
+                
+            } catch (finalizeError) {
+                console.error("Error finalizing NFT:", finalizeError);
+                // Continue with the mint transaction hash at least
+                setTxHash(mintTx.receipt.transactionHash);
+                // Set up event listeners for at least the mint transaction
+                listenForTransactionEvents(mintTx.receipt.transactionHash);
+                // Throw the error to be caught by the outer catch
+                throw finalizeError;
+            }
             
-            console.log("Transaction confirmed, receipt:", tx.receipt);
-            setTxHash(tx.receipt.transactionHash);
+            // Use the transaction hash that was set
+            console.log("Transaction confirmed, receipt:", { txHash });
             setMintStatus("success");
             
             // Log success information to help debug
             console.log("Mint successful:", {
-                txHash: tx.receipt.transactionHash,
-                blockNumber: tx.receipt.blockNumber,
+                txHash: txHash,
+                blockNumber: mintTx.receipt.blockNumber,
                 feeTransaction: feeTx
             });
             
