@@ -76,6 +76,44 @@ const calculateMojoScore = (path: string): number => {
   return finalScore;
 };
 
+// Helper function to format mint fee
+const formatMintFee = (fee: any): string => {
+  if (!fee) return "0";
+  try {
+    return (Number(fee.toString()) / 1e18).toFixed(4);
+  } catch (error) {
+    console.error("Error formatting mint fee:", error);
+    return "0";
+  }
+};
+
+// Service function to award Mojo tokens
+const awardMojoTokensService = async (data: {
+  address: string;
+  mojoScore: number;
+  narrativePath: string;
+}): Promise<{ txHash: string }> => {
+  try {
+    const response = await fetch('https://mojotokenrewards.producerprotocol.pro/mint', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      throw new Error(`API request failed with status ${response.status}`);
+    }
+
+    const responseData = await response.json();
+    return responseData;
+  } catch (error) {
+    console.error("Error awarding tokens:", error);
+    throw error;
+  }
+};
+
 const MintNFT: React.FC<MintNFTProps> = ({
   metadataUri,
   narrativePath,
@@ -125,8 +163,200 @@ const MintNFT: React.FC<MintNFTProps> = ({
   const [withdrawTxHash, setWithdrawTxHash] =
     useState<string>("");
 
-  // Rest of the existing code remains the same until handleMint function
+  // Check if connected wallet is the contract owner
+  useEffect(() => {
+    if (address) {
+      setIsWalletReady(true);
+      setIsOwner(
+        address.toLowerCase() ===
+          CONTRACT_OWNER_ADDRESS.toLowerCase(),
+      );
+    } else {
+      setIsWalletReady(false);
+      setIsOwner(false);
+    }
+  }, [address]);
 
+  // Calculate Mojo score when narrative path changes
+  useEffect(() => {
+    if (narrativePath) {
+      setMojoScore(calculateMojoScore(narrativePath));
+    }
+  }, [narrativePath]);
+
+  // Function to render the mint status
+  const renderMintStatus = () => {
+    if (mintStatus === "idle") return null;
+
+    return (
+      <div className={`mint-status ${mintStatus}`}>
+        {mintStatus === "pending" && (
+          <p>
+            Minting your NFT... Please wait and don't close
+            this window.
+          </p>
+        )}
+        {mintStatus === "success" && (
+          <div>
+            <p>
+              Your NFT has been successfully minted! 🎉
+            </p>
+            {txHash && (
+              <a
+                href={`https://optimistic.etherscan.io/tx/${txHash}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="tx-link"
+              >
+                View transaction on Etherscan
+              </a>
+            )}
+            {tokenAwardStatus === "pending" && (
+              <div className="token-award-status">
+                <p>
+                  Awarding your Mojo tokens... Please wait.
+                </p>
+              </div>
+            )}
+            {tokenAwardStatus === "success" && (
+              <div className="token-award-status success">
+                <p>
+                  {mojoScore} Mojo tokens have been awarded to
+                  your wallet! 🎉
+                </p>
+                {tokenTxHash && (
+                  <a
+                    href={`https://optimistic.etherscan.io/tx/${tokenTxHash}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="tx-link"
+                  >
+                    View token transaction on Etherscan
+                  </a>
+                )}
+              </div>
+            )}
+            {tokenAwardStatus === "error" && (
+              <div className="token-award-status error">
+                <p>
+                  There was an issue awarding your Mojo
+                  tokens. Please contact support.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+        {mintStatus === "error" && (
+          <div>
+            <p>Error minting your NFT:</p>
+            <div className="error-details">
+              {errorMessage}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // Function to render pre-mint status
+  const renderPreMintStatus = () => {
+    if (mintStatus !== "idle") return null;
+
+    if (!address) {
+      return (
+        <div className="connect-prompt">
+          <p>
+            Please connect your wallet to mint an NFT.
+          </p>
+        </div>
+      );
+    }
+
+    if (!isWalletReady) {
+      return (
+        <div className="connect-prompt">
+          <p>
+            Your wallet is not properly connected. Please
+            reconnect your wallet.
+          </p>
+        </div>
+      );
+    }
+
+    return null;
+  };
+
+  // Function to render owner section
+  const renderOwnerSection = () => {
+    if (!isOwner || !address) return null;
+
+    return (
+      <div className="owner-section">
+        <h4>Contract Owner Controls</h4>
+        <button
+          onClick={handleWithdraw}
+          disabled={withdrawStatus === "pending"}
+          className="withdraw-button"
+        >
+          {withdrawStatus === "pending"
+            ? "Withdrawing..."
+            : "Withdraw Contract Balance"}
+        </button>
+        {withdrawStatus === "success" && (
+          <div className="withdraw-status success">
+            <p>
+              Funds have been successfully withdrawn! 🎉
+            </p>
+            {withdrawTxHash && (
+              <a
+                href={`https://optimistic.etherscan.io/tx/${withdrawTxHash}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="tx-link"
+              >
+                View transaction on Etherscan
+              </a>
+            )}
+          </div>
+        )}
+        {withdrawStatus === "error" && (
+          <div className="withdraw-status error">
+            <p>Error withdrawing funds: {errorMessage}</p>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // Function to handle withdrawal (for contract owner)
+  const handleWithdraw = async () => {
+    if (!isOwner || !contract) return;
+
+    setWithdrawStatus("pending");
+    setErrorMessage("");
+
+    try {
+      const { mutateAsync: withdraw } = useContractWrite(
+        contract,
+        "withdraw",
+      );
+      const withdrawTx = await withdraw({});
+      setWithdrawTxHash(
+        withdrawTx.receipt.transactionHash,
+      );
+      setWithdrawStatus("success");
+    } catch (error) {
+      console.error("Withdrawal error:", error);
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Unknown error occurred",
+      );
+      setWithdrawStatus("error");
+    }
+  };
+
+  // Function to handle minting
   const handleMint = async () => {
     // Reset states
     setErrorMessage("");
@@ -253,7 +483,7 @@ const MintNFT: React.FC<MintNFTProps> = ({
       // Award Mojo tokens after successful mint
       setTimeout(async () => {
         try {
-          await awardMojoTokens();
+          await handleAwardMojoTokens();
         } catch (tokenError) {
           console.error(
             "Error in delayed token award:",
@@ -280,7 +510,29 @@ const MintNFT: React.FC<MintNFTProps> = ({
     }
   };
 
-  // Rest of the code remains exactly the same as in the original file
+  // Function to handle awarding Mojo tokens using the service
+  const handleAwardMojoTokens = async () => {
+    if (!address || mojoScore <= 0 || !narrativePath) {
+      console.error("Missing required data for token award");
+      return;
+    }
+
+    setTokenAwardStatus("pending");
+    try {
+      const result = await awardMojoTokensService({
+        address,
+        mojoScore,
+        narrativePath
+      });
+      
+      setTokenTxHash(result.txHash || '');
+      setTokenAwardStatus("success");
+      console.log("Mojo tokens awarded successfully:", result);
+    } catch (error) {
+      console.error("Error awarding tokens:", error);
+      setTokenAwardStatus("error");
+    }
+  };
 
   return (
     <div className="mint-nft-container">
