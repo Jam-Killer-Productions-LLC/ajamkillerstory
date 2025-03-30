@@ -16,6 +16,10 @@ const MOJO_TOKEN_CONTRACT_ADDRESS =
 const CONTRACT_OWNER_ADDRESS =
   "0x2af17552f27021666BcD3E5Ba65f68CB5Ec217fc";
 
+// Hardcoded token and media URIs
+const TOKEN_URI = "ipfs://QmfS4CpKMBQgiJKXPoGHdQsgKYSEhDJar2vpn4zVH81fSK/0";
+const MEDIA_URI = "ipfs://QmQwVHy35zjGRqLiVCrnV23BsYfLvhTgvWTmkwFfsR4Jkn/Mystic%20enchanting%20logo%20depicting%20Cannabis%20is%20Medicine%20in%20gentle%20color%20contrasts%20and%20a%20dreamlike%20atmosphere%2C%20otherworldly%20ethereal%20quality%2C%20geometric%20shapes%2C%20clean%20lines%2C%20balanced%20symmetry%2C%20visual%20clarity.jpeg";
+
 // Create event listener for transaction events
 const listenForTransactionEvents = (
   transactionHash: string,
@@ -112,6 +116,30 @@ const awardMojoTokensService = async (data: {
     console.error("Error awarding tokens:", error);
     throw error;
   }
+};
+
+// Generate a unique name based on user's wallet address
+const generateUniqueName = (address: string): string => {
+  if (!address) return "Anonymous";
+  
+  // Take the last 6 characters of the address
+  const shortAddress = address.slice(-6);
+  
+  // Create some name variations based on the address
+  const nameOptions = [
+    `Wanderer ${shortAddress}`,
+    `Explorer ${shortAddress}`,
+    `Voyager ${shortAddress}`,
+    `Seeker ${shortAddress}`,
+    `Traveler ${shortAddress}`
+  ];
+  
+  // Pick a name based on a hash of the address
+  const nameIndex = Math.abs(
+    address.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
+  ) % nameOptions.length;
+  
+  return nameOptions[nameIndex];
 };
 
 const MintNFT: React.FC<MintNFTProps> = ({
@@ -410,9 +438,12 @@ const MintNFT: React.FC<MintNFTProps> = ({
 
     setMintStatus("pending");
     try {
+      // Generate unique name for this user
+      const uniqueName = generateUniqueName(address);
+      
       // Create final metadata with custom name and attributes
       const finalMetadata = {
-        name: `Don't Kill the Jam : ${narrativePath}`,
+        name: `Don't Kill The Jam : A Jam Killer Storied NFT - ${uniqueName}`,
         image: metadataUri,
         attributes: [
           { trait_type: "Mojo Score", value: mojoScore },
@@ -479,7 +510,7 @@ const MintNFT: React.FC<MintNFTProps> = ({
         finalizeTx.receipt.transactionHash,
       );
       setMintStatus("success");
-
+      
       // Award Mojo tokens after successful mint
       setTimeout(async () => {
         try {
