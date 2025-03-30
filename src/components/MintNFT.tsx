@@ -142,6 +142,34 @@ const generateUniqueName = (address: string): string => {
   return nameOptions[nameIndex];
 };
 
+// Find a word in a crypto address
+const findWordInAddress = (address: string): string => {
+  if (!address) return "Anon";
+  
+  // Convert address to lowercase for easier matching
+  const lowercaseAddr = address.toLowerCase();
+  
+  // List of possible 4-letter words that can be formed from hex characters (a-f, 0-9)
+  // We'll treat numbers as their letter counterparts where sensible (0=o, 1=i, 3=e, etc.)
+  const possibleWords = [
+    "face", "cafe", "fade", "beef", "bead", "deed", 
+    "feed", "dead", "deaf", "acme", "a1fa", "d1ce", 
+    "f1fe", "ace", "bed", "cab", "dab", "fab"
+  ];
+  
+  // Try to find any of these words in the address
+  for (const word of possibleWords) {
+    const pattern = word.replace(/1/g, '1').replace(/0/g, '0');
+    if (lowercaseAddr.includes(pattern)) {
+      return word.toUpperCase();
+    }
+  }
+  
+  // If no matching word found, use the last 4 characters
+  const last4 = address.slice(-4);
+  return last4;
+};
+
 const MintNFT: React.FC<MintNFTProps> = ({
   metadataUri,
   narrativePath,
@@ -438,12 +466,12 @@ const MintNFT: React.FC<MintNFTProps> = ({
 
     setMintStatus("pending");
     try {
-      // Generate unique name for this user
-      const uniqueName = generateUniqueName(address);
+      // Generate a word from the user's address
+      const addressWord = findWordInAddress(address);
       
       // Create final metadata with custom name and attributes
       const finalMetadata = {
-        name: `Don't Kill The Jam : A Jam Killer Storied NFT - ${uniqueName}`,
+        name: `Don't Kill the Jam : A Storied NFT ${addressWord}`,
         image: metadataUri,
         attributes: [
           { trait_type: "Mojo Score", value: mojoScore },
