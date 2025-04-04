@@ -36,6 +36,10 @@ export class NFTContractService {
     mojoScore: number,
     value?: BigNumberish,
   ): Promise<BigNumber> {
+    // New: Ensure mojoScore is provided
+    if (mojoScore === undefined || mojoScore === null) {
+      throw new Error("mojoScore is required for minting NFT");
+    }
     // Ensure value is set; if not, use the mint fee from the contract
     if (!value) {
       value = await this.MINT_FEE();
