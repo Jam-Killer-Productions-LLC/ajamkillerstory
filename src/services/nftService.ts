@@ -36,7 +36,18 @@ export class NFTContractService {
     mojoScore: number,
     value?: BigNumberish,
   ): Promise<BigNumber> {
-    // Define image URLs for each path (unchanged)
+    // Ensure value is set; if not, use the mint fee from the contract
+    if (!value) {
+      value = await this.MINT_FEE();
+    }
+    // Check if the signer's balance is sufficient
+    const signer = this.contract.signer;
+    const currentBalance = await signer.getBalance();
+    if (currentBalance.lt(BigNumber.from(value))) {
+      throw new Error("Insufficient funds to mint NFT");
+    }
+    
+    // Define image URLs for each path
     const pathImages = {
       A: "https://bafybeiakvemnjhgbgknb4luge7kayoyslnkmgqcw7xwaoqmr5l6ujnalum.ipfs.dweb.link?filename=dktjnft1.gif",
       B: "https://bafybeiapjhb52gxhsnufm2mcrufk7d35id3lnexwftxksbcmbx5hsuzore.ipfs.dweb.link?filename=dktjnft2.gif",
