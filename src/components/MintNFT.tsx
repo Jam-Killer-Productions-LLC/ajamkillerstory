@@ -469,10 +469,26 @@ const MintNFT: React.FC<MintNFTProps> = ({
       // Generate a word from the user's address
       const addressWord = findWordInAddress(address);
       
+      // Select image URL based on narrative path
+      let imageUrl;
+      switch (narrativePath) {
+        case "A":
+          imageUrl = "https://bafybeiakvemnjhgbgknb4luge7kayoyslnkmgqcw7xwaoqmr5l6ujnalum.ipfs.dweb.link?filename=dktjnft1.gif";
+          break;
+        case "B":
+          imageUrl = "https://bafybeiapjhb52gxhsnufm2mcrufk7d35id3lnexwftxksbcmbx5hsuzore.ipfs.dweb.link?filename=dktjnft2.gif";
+          break;
+        case "C":
+          imageUrl = "https://bafybeifoew7nyl5p5xxroo3y4lhb2fg2a6gifmd7mdav7uibi4igegehjm.ipfs.dweb.link?filename=dktjnft3.gif";
+          break;
+        default:
+          throw new Error("Invalid narrative path");
+      }
+      
       // Create final metadata with custom name and attributes
       const finalMetadata = {
         name: `Don't Kill the Jam : A Storied NFT ${addressWord}`,
-        image: metadataUri,
+        image: imageUrl,
         attributes: [
           { trait_type: "Mojo Score", value: mojoScore },
           { trait_type: "Narrative", value: narrativePath },
