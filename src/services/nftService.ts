@@ -51,11 +51,11 @@ export class NFTContractService {
       throw new Error("Insufficient funds to mint NFT");
     }
     
-    // Define image URLs for each path
+    // Updated: Use proper ipfs:// URIs (without query parameters) for each path.
     const pathImages = {
-      A: "https://bafybeiakvemnjhgbgknb4luge7kayoyslnkmgqcw7xwaoqmr5l6ujnalum.ipfs.dweb.link?filename=dktjnft1.gif",
-      B: "https://bafybeiapjhb52gxhsnufm2mcrufk7d35id3lnexwftxksbcmbx5hsuzore.ipfs.dweb.link?filename=dktjnft2.gif",
-      C: "https://bafybeifoew7nyl5p5xxroo3y4lhb2fg2a6gifmd7mdav7uibi4igegehjm.ipfs.dweb.link?filename=dktjnft3.gif"
+      A: "ipfs://bafybeiakvemnjhgbgknb4luge7kayoyslnkmgqcw7xwaoqmr5l6ujnalum",
+      B: "ipfs://bafybeiapjhb52gxhsnufm2mcrufk7d35id3lnexwftxksbcmbx5hsuzore",
+      C: "ipfs://bafybeifoew7nyl5p5xxroo3y4lhb2fg2a6gifmd7mdav7uibi4igegehjm"
     };
 
     // Determine rarity based on mojoScore (for example purposes)
