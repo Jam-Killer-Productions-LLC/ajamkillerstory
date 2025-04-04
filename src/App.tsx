@@ -5,7 +5,7 @@ import NarrativeBuilder, { NarrativeFinalizedData } from "./components/Narrative
 import Layout from "./components/Layout";
 
 function App() {
-  const { contract } = useContract("0xfA2A3452D86A9447e361205DFf29B1DD441f1821");
+  const { contract } = useContract("0x914b1339944d48236738424e2dbdbb72a212b2f5");
   
   const handleNarrativeFinalized = (data: NarrativeFinalizedData) => {
     console.log('Narrative finalized:', data);

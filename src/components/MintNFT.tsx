@@ -14,15 +14,12 @@ import contractAbi from "../contractAbi.json";
 import { BigNumber } from "ethers";
 
 const NFT_CONTRACT_ADDRESS =
-  "0xfA2A3452D86A9447e361205DFf29B1DD441f1821";
+  "0x914b1339944d48236738424e2dbdbb72a212b2f5";
 const MOJO_TOKEN_CONTRACT_ADDRESS =
   "0xf9e7D3cd71Ee60C7A3A64Fa7Fcb81e610Ce1daA5";
 const CONTRACT_OWNER_ADDRESS =
   "0x2af17552f27021666BcD3E5Ba65f68CB5Ec217fc";
 
-// Hardcoded token and media URIs
-const TOKEN_URI = "ipfs://QmfS4CpKMBQgiJKXPoGHdQsgKYSEhDJar2vpn4zVH81fSK/0";
-const MEDIA_URI = "ipfs://QmQwVHy35zjGRqLiVCrnV23BsYfLvhTgvWTmkwFfsR4Jkn/Mystic%20enchanting%20logo%20depicting%20Cannabis%20is%20Medicine%20in%20gentle%20color%20contrasts%20and%20a%20dreamlike%20atmosphere%2C%20otherworldly%20ethereal%20quality%2C%20geometric%20shapes%2C%20clean%20lines%2C%20balanced%20symmetry%2C%20visual%20clarity.jpeg";
 
 // Constants for minting
 const EXPECTED_MINT_FEE_WEI = "777000000000000"; // 0.000777 ETH in wei
@@ -204,7 +201,7 @@ const MintNFT: React.FC<MintNFTProps> = ({
 
   // Initialize contract with proper ThirdWeb setup
   const { contract, isLoading: isContractLoading } = useContract(NFT_CONTRACT_ADDRESS, contractAbi);
-  const { mutateAsync: mintNFT } = useContractWrite(contract, "mintNFT");
+  const { mutateAsync: mintTo } = useContractWrite(contract, "mintTo");
   const { mutateAsync: finalizeNFT } = useContractWrite(contract, "finalizeNFT");
 
   // Setup both needed contract functions
@@ -559,9 +556,9 @@ const MintNFT: React.FC<MintNFTProps> = ({
     setErrorMessage("");
 
     try {
-      // Call mintNFT with the correct parameters
-      const mintTx = await mintNFT({
-        args: [address, sanitizedPath],
+      // Call mintTo with the correct parameters
+      const mintTx = await mintTo({
+        args: [address, metadataUri, mojoScore, sanitizedPath],
         overrides: {
           value: EXPECTED_MINT_FEE_WEI,
         },
