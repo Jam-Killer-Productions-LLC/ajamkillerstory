@@ -487,14 +487,17 @@ const MintNFT: React.FC<MintNFTProps> = ({
         ],
       };
 
-      // Log detailed mint parameters
+      // Enhanced logging of mint parameters
       console.log("Detailed Mint Parameters:", {
         address,
+        addressChecksum: address.toLowerCase(), // Log lowercase address for comparison
         narrativePath,
-        imageUrl,
         mintFee: mintFee?.toString(),
+        expectedMintFee: "777000000000000", // 0.000777 ETH in wei
         mojoScore,
-        finalMetadata
+        finalMetadata,
+        contractAddress: NFT_CONTRACT_ADDRESS,
+        contractABI: contractAbi
       });
 
       // Make sure we're using the right chain (Optimism)
@@ -507,57 +510,80 @@ const MintNFT: React.FC<MintNFTProps> = ({
         );
       }
 
-      // Pass mint fee in the transaction
-      const mintTx = await mintNFT({
-        args: [address, narrativePath],
-        overrides: {
-          value: mintFee,
-        },
-      });
+      try {
+        // Pass mint fee in the transaction
+        const mintTx = await mintNFT({
+          args: [address, narrativePath],
+          overrides: {
+            value: mintFee,
+          },
+        });
 
-      console.log("mintNFT transaction submitted:", mintTx);
+        console.log("mintNFT transaction submitted:", mintTx);
 
-      if (!mintTx || !mintTx.receipt) {
-        throw new Error(
-          "mintNFT transaction was submitted but no receipt was returned",
-        );
-      }
-
-      // Use the direct IPFS URI for finalization
-      const finalMetadataUri = imageUrl;
-
-      // Finalize NFT with the direct IPFS URI
-      const finalizeTx = await finalizeNFT({
-        args: [address, finalMetadataUri, narrativePath],
-      });
-
-      console.log(
-        "finalizeNFT transaction submitted:",
-        finalizeTx,
-      );
-      if (!finalizeTx || !finalizeTx.receipt) {
-        throw new Error(
-          "finalizeNFT transaction was submitted but no receipt was returned",
-        );
-      }
-
-      setTxHash(finalizeTx.receipt.transactionHash);
-      listenForTransactionEvents(
-        finalizeTx.receipt.transactionHash,
-      );
-      setMintStatus("success");
-      
-      // Award Mojo tokens after successful mint
-      setTimeout(async () => {
-        try {
-          await handleAwardMojoTokens();
-        } catch (tokenError) {
-          console.error(
-            "Error in delayed token award:",
-            tokenError,
+        if (!mintTx || !mintTx.receipt) {
+          throw new Error(
+            "mintNFT transaction was submitted but no receipt was returned",
           );
         }
-      }, 5000);
+
+        // Use the direct IPFS URI for finalization
+        const finalMetadataUri = imageUrl;
+
+        // Finalize NFT with the direct IPFS URI
+        const finalizeTx = await finalizeNFT({
+          args: [address, finalMetadataUri, narrativePath],
+        });
+
+        console.log(
+          "finalizeNFT transaction submitted:",
+          finalizeTx,
+        );
+        if (!finalizeTx || !finalizeTx.receipt) {
+          throw new Error(
+            "finalizeNFT transaction was submitted but no receipt was returned",
+          );
+        }
+
+        setTxHash(finalizeTx.receipt.transactionHash);
+        listenForTransactionEvents(
+          finalizeTx.receipt.transactionHash,
+        );
+        setMintStatus("success");
+        
+        // Award Mojo tokens after successful mint
+        setTimeout(async () => {
+          try {
+            await handleAwardMojoTokens();
+          } catch (tokenError) {
+            console.error(
+              "Error in delayed token award:",
+              tokenError,
+            );
+          }
+        }, 5000);
+      } catch (txError: unknown) {
+        const error = txError as {
+          name?: string;
+          code?: string;
+          reason?: string;
+          method?: string;
+          transaction?: any;
+          data?: any;
+          message?: string;
+        };
+        console.error("Detailed Transaction Error:", {
+          error: txError,
+          name: error.name,
+          code: error.code,
+          reason: error.reason,
+          method: error.method,
+          transaction: error.transaction,
+          data: error.data,
+          message: error.message
+        });
+        throw txError;
+      }
     } catch (error) {
       console.error("Detailed Mint Error:", error);
       // Capture and log more detailed error information
