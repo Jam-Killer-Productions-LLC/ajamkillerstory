@@ -8,8 +8,10 @@ import {
   useSDK,
   useNetwork,
   useNetworkMismatch,
+  useBalance,
 } from "@thirdweb-dev/react";
 import contractAbi from "../contractAbi.json";
+import { BigNumber } from "ethers";
 
 const NFT_CONTRACT_ADDRESS =
   "0xfA2A3452D86A9447e361205DFf29B1DD441f1821";
@@ -193,9 +195,12 @@ const MintNFT: React.FC<MintNFTProps> = ({
   const sdk = useSDK();
   const [, switchNetwork] = useNetwork();
   const isMismatched = useNetworkMismatch();
+  const { data: balance } = useBalance();
   const [isOnOptimism, setIsOnOptimism] = useState<boolean>(false);
   const [networkError, setNetworkError] = useState<string>("");
   const [sanitizedPath, setSanitizedPath] = useState<string>("");
+  const [insufficientFunds, setInsufficientFunds] = useState<boolean>(false);
+  const [estimatedGas, setEstimatedGas] = useState<BigNumber | null>(null);
 
   // Initialize contract
   const { contract, isLoading: isContractLoading } =
@@ -240,6 +245,9 @@ const MintNFT: React.FC<MintNFTProps> = ({
   >("idle");
   const [withdrawTxHash, setWithdrawTxHash] =
     useState<string>("");
+
+  // Remove the gas estimation useEffect since we'll use a conservative estimate
+  const CONSERVATIVE_GAS_ESTIMATE = BigNumber.from(200000); // Conservative gas estimate for minting
 
   // Check if connected wallet is the contract owner
   useEffect(() => {
@@ -418,6 +426,22 @@ const MintNFT: React.FC<MintNFTProps> = ({
       );
     }
 
+    if (insufficientFunds) {
+      return (
+        <div className="insufficient-funds-prompt">
+          <p>
+            You don't have enough ETH to complete this transaction.
+          </p>
+          <p className="balance-info">
+            Required: {formatMintFee(mintFee?.toString() || "0")} ETH (mint fee) + gas
+          </p>
+          <p className="balance-info">
+            Your balance: {balance ? formatMintFee(balance.value) : "0"} ETH
+          </p>
+        </div>
+      );
+    }
+
     // Check if we're on Optimism
     if (!isOnOptimism) {
       return (
@@ -519,6 +543,7 @@ const MintNFT: React.FC<MintNFTProps> = ({
   const handleMint = async () => {
     // Reset states
     setErrorMessage("");
+    setInsufficientFunds(false);
 
     // Validation checks
     if (!address) {
@@ -558,6 +583,29 @@ const MintNFT: React.FC<MintNFTProps> = ({
         "Mint fee information is still loading. Please wait.",
       );
       return;
+    }
+
+    // Check if user has sufficient balance for mint fee + gas
+    if (balance) {
+      const mintFeeBN = BigNumber.from(mintFee);
+      // Use a conservative gas estimate
+      const gasCost = CONSERVATIVE_GAS_ESTIMATE.mul(1000000000); // 1 gwei as base gas price
+      const totalCost = mintFeeBN.add(gasCost);
+
+      console.log("Balance check details:", {
+        balance: balance.value.toString(),
+        mintFee: mintFeeBN.toString(),
+        gasCost: gasCost.toString(),
+        totalCost: totalCost.toString()
+      });
+
+      if (balance.value.lt(totalCost)) {
+        setInsufficientFunds(true);
+        setErrorMessage(
+          `Insufficient funds. You need at least ${formatMintFee(totalCost.toString())} ETH (mint fee + gas) to complete this transaction.`
+        );
+        return;
+      }
     }
 
     // Ensure we have a mojo score
