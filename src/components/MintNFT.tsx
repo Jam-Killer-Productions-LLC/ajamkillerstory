@@ -435,14 +435,6 @@ const MintNFT: React.FC<MintNFTProps> = ({
       return;
     }
 
-    if (
-      !metadataUri ||
-      !metadataUri.startsWith("ipfs://")
-    ) {
-      setErrorMessage("Invalid metadata URI");
-      return;
-    }
-
     // Check if contract is loaded
     if (isContractLoading || !contract) {
       setErrorMessage(
@@ -484,7 +476,7 @@ const MintNFT: React.FC<MintNFTProps> = ({
         default:
           throw new Error("Invalid narrative path");
       }
-      
+
       // Create final metadata with custom name and attributes
       const finalMetadata = {
         name: `Don't Kill the Jam : A Storied NFT ${addressWord}`,
@@ -495,17 +487,14 @@ const MintNFT: React.FC<MintNFTProps> = ({
         ],
       };
 
-      // Convert metadata to base64 data URI
-      const metadataString = JSON.stringify(finalMetadata);
-      const metadataBase64 = btoa(metadataString);
-      const finalMetadataUri = `data:application/json;base64,${metadataBase64}`;
-
-      console.log("Minting with:", {
+      // Log detailed mint parameters
+      console.log("Detailed Mint Parameters:", {
         address,
         narrativePath,
-        finalMetadataUri,
-        mintFee: mintFee?.toString() || "0",
+        imageUrl,
+        mintFee: mintFee?.toString(),
         mojoScore,
+        finalMetadata
       });
 
       // Make sure we're using the right chain (Optimism)
@@ -534,7 +523,10 @@ const MintNFT: React.FC<MintNFTProps> = ({
         );
       }
 
-      // Finalize NFT with the generated metadata URI
+      // Use the direct IPFS URI for finalization
+      const finalMetadataUri = imageUrl;
+
+      // Finalize NFT with the direct IPFS URI
       const finalizeTx = await finalizeNFT({
         args: [address, finalMetadataUri, narrativePath],
       });
@@ -567,11 +559,23 @@ const MintNFT: React.FC<MintNFTProps> = ({
         }
       }, 5000);
     } catch (error) {
-      console.error("Minting error:", error);
-      let errorMsg =
-        error instanceof Error
-          ? error.message
-          : "Unknown error occurred";
+      console.error("Detailed Mint Error:", error);
+      // Capture and log more detailed error information
+      const errorDetails = JSON.stringify(
+        error,
+        Object.getOwnPropertyNames(error),
+      );
+      console.error("Error details:", errorDetails);
+      
+      let errorMsg = "Unknown error occurred";
+      if (error instanceof Error) {
+        errorMsg = error.message;
+      } else if (typeof error === 'string') {
+        errorMsg = error;
+      } else if (errorDetails) {
+        errorMsg = errorDetails;
+      }
+
       if (errorMsg.includes("insufficient funds")) {
         errorMsg =
           "Insufficient funds to cover the mint fee and gas. Please add more ETH to your wallet.";
