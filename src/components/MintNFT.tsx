@@ -261,16 +261,17 @@ const MintNFT: React.FC<MintNFTProps> = ({
         return;
       }
 
-      // Mint the NFT
-      const tx = await nftService.mintNFT(address, narrativePath, mintFee);
+      // Calculate Mojo score before minting
+      const score = calculateMojoScore(narrativePath);
+      setMojoScore(score);
+
+      // Mint the NFT with metadata including Mojo score
+      const tx = await nftService.mintNFT(address, narrativePath, score, mintFee);
       setTxHash(tx.toString());
       setMintStatus("success");
 
       // Award Mojo tokens after successful mint
-      const score = calculateMojoScore(narrativePath);
-      setMojoScore(score);
       setTokenAwardStatus("pending");
-
       try {
         const tokenTx = await awardMojoTokensService({
           address,
