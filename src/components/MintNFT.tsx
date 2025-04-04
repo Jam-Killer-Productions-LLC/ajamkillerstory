@@ -202,20 +202,14 @@ const MintNFT: React.FC<MintNFTProps> = ({
   const [insufficientFunds, setInsufficientFunds] = useState<boolean>(false);
   const [estimatedGas, setEstimatedGas] = useState<BigNumber | null>(null);
 
-  // Initialize contract
-  const { contract, isLoading: isContractLoading } =
-    useContract(NFT_CONTRACT_ADDRESS, contractAbi);
+  // Initialize contract with proper ThirdWeb setup
+  const { contract, isLoading: isContractLoading } = useContract(NFT_CONTRACT_ADDRESS, contractAbi);
+  const { mutateAsync: mintNFT } = useContractWrite(contract, "mintNFT");
+  const { mutateAsync: finalizeNFT } = useContractWrite(contract, "finalizeNFT");
 
   // Setup both needed contract functions
-  const { mutateAsync: mintNFT, isLoading: isMintPending } =
-    useContractWrite(contract, "mintNFT");
-  const {
-    mutateAsync: finalizeNFT,
-    isLoading: isFinalizePending,
-  } = useContractWrite(contract, "finalizeNFT");
   const { mutateAsync: withdraw, isLoading: isWithdrawPending } =
     useContractWrite(contract, "withdraw");
-  const isPending = isMintPending || isFinalizePending || isWithdrawPending;
 
   const { data: mintFee, isLoading: isMintFeeLoading } =
     useContractRead(contract, "MINT_FEE");
@@ -541,20 +535,13 @@ const MintNFT: React.FC<MintNFTProps> = ({
 
   // Function to handle minting
   const handleMint = async () => {
-    // Reset states
-    setErrorMessage("");
-    setInsufficientFunds(false);
-
-    // Validation checks
-    if (!address) {
+    if (!address || !contract) {
       setErrorMessage("Please connect your wallet");
       return;
     }
 
-    if (!isWalletReady) {
-      setErrorMessage(
-        "Your wallet is not properly connected. Please reconnect your wallet.",
-      );
+    if (isContractLoading) {
+      setErrorMessage("Contract is still loading. Please wait.");
       return;
     }
 
@@ -563,225 +550,45 @@ const MintNFT: React.FC<MintNFTProps> = ({
       return;
     }
 
-    // Check if narrative path was sanitized
     if (sanitizedPath !== narrativePath) {
       setErrorMessage("Invalid characters in narrative path");
       return;
     }
 
-    // Check if contract is loaded
-    if (isContractLoading || !contract) {
-      setErrorMessage(
-        "Contract is still loading. Please wait.",
-      );
-      return;
-    }
-
-    // Check if mint fee is loaded
-    if (isMintFeeLoading || mintFee === undefined) {
-      setErrorMessage(
-        "Mint fee information is still loading. Please wait.",
-      );
-      return;
-    }
-
-    // Check if user has sufficient balance for mint fee + gas
-    if (balance) {
-      const mintFeeBN = BigNumber.from(mintFee);
-      // Use a conservative gas estimate
-      const gasCost = CONSERVATIVE_GAS_ESTIMATE.mul(1000000000); // 1 gwei as base gas price
-      const totalCost = mintFeeBN.add(gasCost);
-
-      console.log("Balance check details:", {
-        balance: balance.value.toString(),
-        mintFee: mintFeeBN.toString(),
-        gasCost: gasCost.toString(),
-        totalCost: totalCost.toString()
-      });
-
-      if (balance.value.lt(totalCost)) {
-        setInsufficientFunds(true);
-        setErrorMessage(
-          `Insufficient funds. You need at least ${formatMintFee(totalCost.toString())} ETH (mint fee + gas) to complete this transaction.`
-        );
-        return;
-      }
-    }
-
-    // Ensure we have a mojo score
-    if (mojoScore === 0) {
-      setMojoScore(calculateMojoScore(narrativePath));
-    }
-
     setMintStatus("pending");
-    let imageUrl: string;
-
-    // Select image URL based on narrative path first
-    switch (narrativePath) {
-      case "A":
-        imageUrl = "https://bafybeiakvemnjhgbgknb4luge7kayoyslnkmgqcw7xwaoqmr5l6ujnalum.ipfs.dweb.link?filename=dktjnft1.gif";
-        break;
-      case "B":
-        imageUrl = "https://bafybeiapjhb52gxhsnufm2mcrufk7d35id3lnexwftxksbcmbx5hsuzore.ipfs.dweb.link?filename=dktjnft2.gif";
-        break;
-      case "C":
-        imageUrl = "https://bafybeifoew7nyl5p5xxroo3y4lhb2fg2a6gifmd7mdav7uibi4igegehjm.ipfs.dweb.link?filename=dktjnft3.gif";
-        break;
-      default:
-        throw new Error("Invalid narrative path");
-    }
+    setErrorMessage("");
 
     try {
-      // Enhanced logging of mint parameters
-      console.log("Detailed Mint Parameters:", {
-        address,
-        addressChecksum: address.toLowerCase(),
-        narrativePath: sanitizedPath,
-        mintFee: mintFee?.toString(),
-        expectedMintFee: EXPECTED_MINT_FEE_WEI,
-        mojoScore,
-        finalMetadata: {
-          name: `Don't Kill the Jam : A Storied NFT ${findWordInAddress(address)}`,
-          image: imageUrl,
-          attributes: [
-            { trait_type: "Mojo Score", value: mojoScore },
-            { trait_type: "Narrative", value: sanitizedPath }
-          ]
-        },
-        contractAddress: NFT_CONTRACT_ADDRESS,
-        contractABI: contractAbi
-      });
-
-      // Make sure we're using the right chain (Optimism)
-      try {
-        const currentChain = await sdk?.wallet.getChainId();
-        console.log("Current chain ID:", currentChain);
-        if (currentChain !== 10) {
-          throw new Error(
-            "Please connect to the Optimism network to mint.",
-          );
-        }
-      } catch (chainError) {
-        console.error("Error checking chain ID:", chainError);
-        throw new Error(
-          "Failed to verify network connection. Please ensure you're connected to Optimism.",
-        );
-      }
-
-      // Validate mint fee matches exactly
-      if (mintFee?.toString() !== EXPECTED_MINT_FEE_WEI) {
-        throw new Error(
-          `Mint fee mismatch. Expected: ${EXPECTED_MINT_FEE_WEI}, Got: ${mintFee?.toString()}`
-        );
-      }
-
-      // Validate narrative path format
-      if (sanitizedPath.length !== 1 || !["A", "B", "C"].includes(sanitizedPath)) {
-        throw new Error(
-          `Invalid narrative path format. Expected single character A, B, or C. Got: ${sanitizedPath}`
-        );
-      }
-
-      // Pass mint fee in the transaction with explicit value
+      // Call mintNFT with the correct parameters
       const mintTx = await mintNFT({
-        args: [address, sanitizedPath], // Correct parameter order: to, path
+        args: [address, sanitizedPath],
         overrides: {
           value: EXPECTED_MINT_FEE_WEI,
         },
       });
 
-      console.log("mintNFT transaction submitted:", mintTx);
+      console.log("Mint transaction:", mintTx);
 
       if (!mintTx || !mintTx.receipt) {
-        throw new Error(
-          "mintNFT transaction was submitted but no receipt was returned",
-        );
+        throw new Error("Mint transaction failed - no receipt received");
       }
 
-      // Finalize NFT with the direct IPFS URI
-      const finalizeTx = await finalizeNFT({
-        args: [address, imageUrl, sanitizedPath], // Correct parameter order: to, finalURI, path
-      });
-
-      console.log(
-        "finalizeNFT transaction submitted:",
-        finalizeTx,
-      );
-      if (!finalizeTx || !finalizeTx.receipt) {
-        throw new Error(
-          "finalizeNFT transaction was submitted but no receipt was returned",
-        );
-      }
-
-      setTxHash(finalizeTx.receipt.transactionHash);
-      listenForTransactionEvents(
-        finalizeTx.receipt.transactionHash,
-      );
+      setTxHash(mintTx.receipt.transactionHash);
       setMintStatus("success");
-      
+
       // Award Mojo tokens after successful mint
       setTimeout(async () => {
         try {
-          console.log("Initiating Mojo token award process...", {
-            address,
-            mojoScore,
-            narrativePath: sanitizedPath
-          });
           await handleAwardMojoTokens();
-          console.log("Mojo token award process completed successfully");
-        } catch (tokenError) {
-          console.error(
-            "Error in delayed token award:",
-            tokenError,
-            {
-              address,
-              mojoScore,
-              narrativePath: sanitizedPath,
-              error: tokenError instanceof Error ? tokenError.message : "Unknown error"
-            }
-          );
+        } catch (error) {
+          console.error("Error awarding tokens:", error);
+          setTokenAwardStatus("error");
         }
       }, 5000);
+
     } catch (error) {
-      console.error("Detailed Mint Error:", error);
-      // Capture and log more detailed error information
-      const errorDetails = JSON.stringify(
-        error,
-        Object.getOwnPropertyNames(error),
-      );
-      console.error("Error details:", errorDetails);
-      
-      let errorMsg = "Unknown error occurred";
-      if (error instanceof Error) {
-        errorMsg = error.message;
-      } else if (typeof error === 'string') {
-        errorMsg = error;
-      } else if (errorDetails) {
-        errorMsg = errorDetails;
-      }
-
-      // Enhanced error message handling
-      if (errorMsg.includes("insufficient funds")) {
-        errorMsg = "Insufficient funds to cover the mint fee and gas. Please add more ETH to your wallet.";
-      } else if (errorMsg.toLowerCase().includes("revert")) {
-        errorMsg = `Transaction reverted by the contract. Details: ${errorMsg}`;
-      } else if (errorMsg.includes("user rejected")) {
-        errorMsg = "Transaction was rejected by the user.";
-      } else if (errorMsg.includes("network")) {
-        errorMsg = "Network error occurred. Please check your connection and try again.";
-      }
-
-      // Log the final error message and context
-      console.error("Final error message:", errorMsg, {
-        address,
-        narrativePath: sanitizedPath,
-        mintFee: mintFee?.toString(),
-        expectedMintFee: EXPECTED_MINT_FEE_WEI,
-        mojoScore,
-        contractAddress: NFT_CONTRACT_ADDRESS
-      });
-
-      setErrorMessage(errorMsg);
+      console.error("Mint error:", error);
+      setErrorMessage(error instanceof Error ? error.message : "Unknown error occurred");
       setMintStatus("error");
     }
   };
@@ -832,7 +639,6 @@ const MintNFT: React.FC<MintNFTProps> = ({
       <button
         onClick={handleMint}
         disabled={
-          isPending ||
           !address ||
           mintStatus === "pending" ||
           mintStatus === "success" ||
@@ -842,7 +648,7 @@ const MintNFT: React.FC<MintNFTProps> = ({
         }
         className={`mint-button ${mintStatus === "success" ? "success" : ""}`}
       >
-        {isPending || mintStatus === "pending"
+        {mintStatus === "pending"
           ? "Minting..."
           : mintStatus === "success"
             ? "Minted Successfully!"
