@@ -175,6 +175,16 @@ const findWordInAddress = (address: string): string => {
   return last4;
 };
 
+// Helper function to sanitize narrative inputs
+const sanitizeNarrative = (narrative: string): string => {
+  // Remove potentially offensive content and limit length
+  const sanitized = narrative
+    .replace(/[^\w\s.,!?-]/gi, "") // Remove special characters
+    .trim()
+    .slice(0, 500); // Limit length
+  return sanitized;
+};
+
 const MintNFT: React.FC<MintNFTProps> = ({
   metadataUri,
   narrativePath,
@@ -184,6 +194,8 @@ const MintNFT: React.FC<MintNFTProps> = ({
   const [, switchNetwork] = useNetwork();
   const isMismatched = useNetworkMismatch();
   const [isOnOptimism, setIsOnOptimism] = useState<boolean>(false);
+  const [networkError, setNetworkError] = useState<string>("");
+  const [sanitizedPath, setSanitizedPath] = useState<string>("");
 
   // Initialize contract
   const { contract, isLoading: isContractLoading } =
@@ -250,16 +262,40 @@ const MintNFT: React.FC<MintNFTProps> = ({
     }
   }, [narrativePath]);
 
+  // Sanitize narrative path when component mounts or path changes
+  useEffect(() => {
+    if (narrativePath) {
+      const sanitized = sanitizeNarrative(narrativePath);
+      setSanitizedPath(sanitized);
+    }
+  }, [narrativePath]);
+
   // Handle network switching
   const handleSwitchNetwork = async () => {
+    setNetworkError("");
     try {
       if (!switchNetwork) {
-        throw new Error("Network switching not available");
+        throw new Error("Network switching not available in your wallet");
       }
-      await switchNetwork(10); // Optimism chain ID
-      console.log("Network switch initiated");
+      
+      // First try to switch network
+      await switchNetwork(10);
+      
+      // Verify the switch was successful
+      const chainId = await sdk?.wallet.getChainId();
+      if (chainId !== 10) {
+        throw new Error("Failed to switch to Optimism network");
+      }
+      
+      setIsOnOptimism(true);
+      console.log("Successfully switched to Optimism network");
     } catch (error) {
       console.error("Network switch error:", error);
+      setNetworkError(
+        error instanceof Error 
+          ? error.message 
+          : "Failed to switch networks. Please switch manually in your wallet."
+      );
     }
   };
 
@@ -270,9 +306,11 @@ const MintNFT: React.FC<MintNFTProps> = ({
       try {
         const chainId = await sdk.wallet.getChainId();
         setIsOnOptimism(chainId === 10);
+        setNetworkError("");
       } catch (error) {
         console.error("Error checking network:", error);
         setIsOnOptimism(false);
+        setNetworkError("Failed to check network status");
       }
     };
 
@@ -393,9 +431,15 @@ const MintNFT: React.FC<MintNFTProps> = ({
           <button
             onClick={handleSwitchNetwork}
             className="switch-network-btn"
+            disabled={!switchNetwork}
           >
-            Switch to Optimism
+            {switchNetwork ? "Switch to Optimism" : "Switch Network in Wallet"}
           </button>
+          {networkError && (
+            <p className="network-error">
+              {networkError}
+            </p>
+          )}
         </div>
       );
     }
@@ -494,6 +538,12 @@ const MintNFT: React.FC<MintNFTProps> = ({
       return;
     }
 
+    // Check if narrative path was sanitized
+    if (sanitizedPath !== narrativePath) {
+      setErrorMessage("Invalid characters in narrative path");
+      return;
+    }
+
     // Check if contract is loaded
     if (isContractLoading || !contract) {
       setErrorMessage(
@@ -537,8 +587,8 @@ const MintNFT: React.FC<MintNFTProps> = ({
       // Enhanced logging of mint parameters
       console.log("Detailed Mint Parameters:", {
         address,
-        addressChecksum: address.toLowerCase(), // Log lowercase address for comparison
-        narrativePath,
+        addressChecksum: address.toLowerCase(),
+        narrativePath: sanitizedPath,
         mintFee: mintFee?.toString(),
         expectedMintFee: EXPECTED_MINT_FEE_WEI,
         mojoScore,
@@ -547,7 +597,7 @@ const MintNFT: React.FC<MintNFTProps> = ({
           image: imageUrl,
           attributes: [
             { trait_type: "Mojo Score", value: mojoScore },
-            { trait_type: "Narrative", value: narrativePath }
+            { trait_type: "Narrative", value: sanitizedPath }
           ]
         },
         contractAddress: NFT_CONTRACT_ADDRESS,
@@ -559,7 +609,6 @@ const MintNFT: React.FC<MintNFTProps> = ({
         const currentChain = await sdk?.wallet.getChainId();
         console.log("Current chain ID:", currentChain);
         if (currentChain !== 10) {
-          // 10 is Optimism's chain ID
           throw new Error(
             "Please connect to the Optimism network to mint.",
           );
@@ -579,15 +628,15 @@ const MintNFT: React.FC<MintNFTProps> = ({
       }
 
       // Validate narrative path format
-      if (narrativePath.length !== 1 || !["A", "B", "C"].includes(narrativePath)) {
+      if (sanitizedPath.length !== 1 || !["A", "B", "C"].includes(sanitizedPath)) {
         throw new Error(
-          `Invalid narrative path format. Expected single character A, B, or C. Got: ${narrativePath}`
+          `Invalid narrative path format. Expected single character A, B, or C. Got: ${sanitizedPath}`
         );
       }
 
       // Pass mint fee in the transaction with explicit value
       const mintTx = await mintNFT({
-        args: [address, narrativePath], // Correct parameter order: to, path
+        args: [address, sanitizedPath], // Correct parameter order: to, path
         overrides: {
           value: EXPECTED_MINT_FEE_WEI,
         },
@@ -603,7 +652,7 @@ const MintNFT: React.FC<MintNFTProps> = ({
 
       // Finalize NFT with the direct IPFS URI
       const finalizeTx = await finalizeNFT({
-        args: [address, imageUrl, narrativePath], // Correct parameter order: to, finalURI, path
+        args: [address, imageUrl, sanitizedPath], // Correct parameter order: to, finalURI, path
       });
 
       console.log(
@@ -628,7 +677,7 @@ const MintNFT: React.FC<MintNFTProps> = ({
           console.log("Initiating Mojo token award process...", {
             address,
             mojoScore,
-            narrativePath
+            narrativePath: sanitizedPath
           });
           await handleAwardMojoTokens();
           console.log("Mojo token award process completed successfully");
@@ -639,7 +688,7 @@ const MintNFT: React.FC<MintNFTProps> = ({
             {
               address,
               mojoScore,
-              narrativePath,
+              narrativePath: sanitizedPath,
               error: tokenError instanceof Error ? tokenError.message : "Unknown error"
             }
           );
@@ -677,7 +726,7 @@ const MintNFT: React.FC<MintNFTProps> = ({
       // Log the final error message and context
       console.error("Final error message:", errorMsg, {
         address,
-        narrativePath,
+        narrativePath: sanitizedPath,
         mintFee: mintFee?.toString(),
         expectedMintFee: EXPECTED_MINT_FEE_WEI,
         mojoScore,
@@ -691,7 +740,7 @@ const MintNFT: React.FC<MintNFTProps> = ({
 
   // Function to handle awarding Mojo tokens using the service
   const handleAwardMojoTokens = async () => {
-    if (!address || mojoScore <= 0 || !narrativePath) {
+    if (!address || mojoScore <= 0 || !sanitizedPath) {
       console.error("Missing required data for token award");
       return;
     }
@@ -701,7 +750,7 @@ const MintNFT: React.FC<MintNFTProps> = ({
       const result = await awardMojoTokensService({
         address,
         mojoScore,
-        narrativePath
+        narrativePath: sanitizedPath
       });
       
       setTokenTxHash(result.txHash || '');
