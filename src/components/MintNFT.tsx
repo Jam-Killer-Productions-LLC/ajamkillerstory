@@ -228,33 +228,37 @@ const MintNFT: React.FC<MintNFTProps> = ({
   const [withdrawTxHash, setWithdrawTxHash] =
     useState<string>("");
 
-  // Check if connected wallet is the contract owner
+  // Check if connected wallet is the contract owner and handle network switching
   useEffect(() => {
+    const handleNetworkSwitch = async () => {
+      if (!sdk || !switchNetwork) return;
+
+      try {
+        const currentChain = await sdk.wallet.getChainId();
+        console.log("Current chain ID:", currentChain);
+
+        if (currentChain !== 10) { // 10 is Optimism's chain ID
+          console.log("Switching to Optimism network...");
+          await switchNetwork(10);
+          console.log("Successfully switched to Optimism network");
+        }
+      } catch (error) {
+        console.error("Error switching network:", error);
+      }
+    };
+
     if (address) {
       setIsWalletReady(true);
       setIsOwner(
         address.toLowerCase() ===
           CONTRACT_OWNER_ADDRESS.toLowerCase(),
       );
-
-      // Switch to Optimism network if needed
-      const switchToOptimism = async () => {
-        try {
-          if (isMismatched && switchNetwork) {
-            await switchNetwork(10); // 10 is Optimism's chain ID
-            console.log("Successfully switched to Optimism network");
-          }
-        } catch (error) {
-          console.error("Error switching to Optimism network:", error);
-        }
-      };
-
-      switchToOptimism();
+      handleNetworkSwitch();
     } else {
       setIsWalletReady(false);
       setIsOwner(false);
     }
-  }, [address, isMismatched, switchNetwork]);
+  }, [address, sdk, switchNetwork]);
 
   // Calculate Mojo score when narrative path changes
   useEffect(() => {
