@@ -8,7 +8,6 @@ import {
   useSDK,
 } from "@thirdweb-dev/react";
 import contractAbi from "../contractAbi.json";
-import { uploadMetadata } from "../services/metadataService";
 
 const NFT_CONTRACT_ADDRESS =
   "0xfA2A3452D86A9447e361205DFf29B1DD441f1821";
@@ -20,6 +19,9 @@ const CONTRACT_OWNER_ADDRESS =
 // Hardcoded token and media URIs
 const TOKEN_URI = "ipfs://QmfS4CpKMBQgiJKXPoGHdQsgKYSEhDJar2vpn4zVH81fSK/0";
 const MEDIA_URI = "ipfs://QmQwVHy35zjGRqLiVCrnV23BsYfLvhTgvWTmkwFfsR4Jkn/Mystic%20enchanting%20logo%20depicting%20Cannabis%20is%20Medicine%20in%20gentle%20color%20contrasts%20and%20a%20dreamlike%20atmosphere%2C%20otherworldly%20ethereal%20quality%2C%20geometric%20shapes%2C%20clean%20lines%2C%20balanced%20symmetry%2C%20visual%20clarity.jpeg";
+
+// Constants for minting
+const EXPECTED_MINT_FEE_WEI = "777000000000000"; // 0.000777 ETH in wei
 
 // Create event listener for transaction events
 const listenForTransactionEvents = (
@@ -458,6 +460,23 @@ const MintNFT: React.FC<MintNFTProps> = ({
     }
 
     setMintStatus("pending");
+    let imageUrl: string;
+
+    // Select image URL based on narrative path first
+    switch (narrativePath) {
+      case "A":
+        imageUrl = "https://bafybeiakvemnjhgbgknb4luge7kayoyslnkmgqcw7xwaoqmr5l6ujnalum.ipfs.dweb.link?filename=dktjnft1.gif";
+        break;
+      case "B":
+        imageUrl = "https://bafybeiapjhb52gxhsnufm2mcrufk7d35id3lnexwftxksbcmbx5hsuzore.ipfs.dweb.link?filename=dktjnft2.gif";
+        break;
+      case "C":
+        imageUrl = "https://bafybeifoew7nyl5p5xxroo3y4lhb2fg2a6gifmd7mdav7uibi4igegehjm.ipfs.dweb.link?filename=dktjnft3.gif";
+        break;
+      default:
+        throw new Error("Invalid narrative path");
+    }
+
     try {
       // Enhanced logging of mint parameters
       console.log("Detailed Mint Parameters:", {
@@ -465,11 +484,11 @@ const MintNFT: React.FC<MintNFTProps> = ({
         addressChecksum: address.toLowerCase(), // Log lowercase address for comparison
         narrativePath,
         mintFee: mintFee?.toString(),
-        expectedMintFee: "777000000000000", // 0.000777 ETH in wei
+        expectedMintFee: EXPECTED_MINT_FEE_WEI,
         mojoScore,
         finalMetadata: {
           name: `Don't Kill the Jam : A Storied NFT ${findWordInAddress(address)}`,
-          image: "https://bafybeiakvemnjhgbgknb4luge7kayoyslnkmgqcw7xwaoqmr5l6ujnalum.ipfs.dweb.link?filename=dktjnft1.gif",
+          image: imageUrl,
           attributes: [
             { trait_type: "Mojo Score", value: mojoScore },
             { trait_type: "Narrative", value: narrativePath }
@@ -490,10 +509,9 @@ const MintNFT: React.FC<MintNFTProps> = ({
       }
 
       // Validate mint fee matches exactly
-      const expectedMintFeeWei = "777000000000000"; // 0.000777 ETH in wei
-      if (mintFee?.toString() !== expectedMintFeeWei) {
+      if (mintFee?.toString() !== EXPECTED_MINT_FEE_WEI) {
         throw new Error(
-          `Mint fee mismatch. Expected: ${expectedMintFeeWei}, Got: ${mintFee?.toString()}`
+          `Mint fee mismatch. Expected: ${EXPECTED_MINT_FEE_WEI}, Got: ${mintFee?.toString()}`
         );
       }
 
@@ -504,157 +522,91 @@ const MintNFT: React.FC<MintNFTProps> = ({
         );
       }
 
-      try {
-        // Pass mint fee in the transaction with explicit value
-        const mintTx = await mintNFT({
-          args: [address, narrativePath], // Correct parameter order: to, path
-          overrides: {
-            value: expectedMintFeeWei,
-          },
-        });
+      // Pass mint fee in the transaction with explicit value
+      const mintTx = await mintNFT({
+        args: [address, narrativePath], // Correct parameter order: to, path
+        overrides: {
+          value: EXPECTED_MINT_FEE_WEI,
+        },
+      });
 
-        console.log("mintNFT transaction submitted:", mintTx);
+      console.log("mintNFT transaction submitted:", mintTx);
 
-        if (!mintTx || !mintTx.receipt) {
-          throw new Error(
-            "mintNFT transaction was submitted but no receipt was returned",
-          );
-        }
-
-        // Select image URL based on narrative path
-        let imageUrl;
-        switch (narrativePath) {
-          case "A":
-            imageUrl = "https://bafybeiakvemnjhgbgknb4luge7kayoyslnkmgqcw7xwaoqmr5l6ujnalum.ipfs.dweb.link?filename=dktjnft1.gif";
-            break;
-          case "B":
-            imageUrl = "https://bafybeiapjhb52gxhsnufm2mcrufk7d35id3lnexwftxksbcmbx5hsuzore.ipfs.dweb.link?filename=dktjnft2.gif";
-            break;
-          case "C":
-            imageUrl = "https://bafybeifoew7nyl5p5xxroo3y4lhb2fg2a6gifmd7mdav7uibi4igegehjm.ipfs.dweb.link?filename=dktjnft3.gif";
-            break;
-          default:
-            throw new Error("Invalid narrative path");
-        }
-
-        // Create proper metadata with image and traits
-        const metadata = {
-          name: `Don't Kill the Jam : A Storied NFT ${findWordInAddress(address)}`,
-          image: imageUrl,
-          attributes: [
-            { trait_type: "Mojo Score", value: mojoScore },
-            { trait_type: "Narrative", value: narrativePath }
-          ]
-        };
-
-        // Upload metadata to IPFS
-        console.log("Uploading metadata to IPFS:", metadata);
-        const uploadResult = await uploadMetadata(metadata, address);
-        
-        if (!uploadResult.success || !uploadResult.uri) {
-          throw new Error(`Failed to upload metadata: ${uploadResult.error || 'Unknown error'}`);
-        }
-
-        console.log("Metadata uploaded successfully. URI:", uploadResult.uri);
-
-        // Finalize NFT with the IPFS metadata URI
-        const finalizeTx = await finalizeNFT({
-          args: [address, uploadResult.uri, narrativePath], // Correct parameter order: to, finalURI, path
-        });
-
-        console.log(
-          "finalizeNFT transaction submitted:",
-          finalizeTx,
+      if (!mintTx || !mintTx.receipt) {
+        throw new Error(
+          "mintNFT transaction was submitted but no receipt was returned",
         );
-        if (!finalizeTx || !finalizeTx.receipt) {
-          throw new Error(
-            "finalizeNFT transaction was submitted but no receipt was returned",
-          );
-        }
-
-        setTxHash(finalizeTx.receipt.transactionHash);
-        listenForTransactionEvents(
-          finalizeTx.receipt.transactionHash,
-        );
-        setMintStatus("success");
-        
-        // Award Mojo tokens after successful mint
-        setTimeout(async () => {
-          try {
-            await handleAwardMojoTokens();
-          } catch (tokenError) {
-            console.error(
-              "Error in delayed token award:",
-              tokenError,
-            );
-          }
-        }, 5000);
-      } catch (txError: unknown) {
-        const error = txError as {
-          name?: string;
-          code?: string;
-          reason?: string;
-          method?: string;
-          transaction?: any;
-          data?: any;
-          message?: string;
-        };
-        console.error("Detailed Transaction Error:", {
-          error: txError,
-          name: error.name,
-          code: error.code,
-          reason: error.reason,
-          method: error.method,
-          transaction: error.transaction,
-          data: error.data,
-          message: error.message,
-          // Add additional debugging info
-          contractAddress: NFT_CONTRACT_ADDRESS,
-          mintFee: mintFee?.toString(),
-          narrativePath,
-          address,
-          // Add ABI validation info
-          mintNFTParams: {
-            to: address,
-            path: narrativePath,
-            value: expectedMintFeeWei
-          },
-          finalizeNFTParams: {
-            to: address,
-            finalURI: 'Not uploaded', // Remove reference to uploadResult since it's not in scope
-            path: narrativePath
-          }
-        });
-        throw txError;
       }
-    } catch (error) {
-      console.error("Detailed Mint Error:", error);
-      // Capture and log more detailed error information
-      const errorDetails = JSON.stringify(
-        error,
-        Object.getOwnPropertyNames(error),
+
+      // Finalize NFT with the direct IPFS URI
+      const finalizeTx = await finalizeNFT({
+        args: [address, imageUrl, narrativePath], // Correct parameter order: to, finalURI, path
+      });
+
+      console.log(
+        "finalizeNFT transaction submitted:",
+        finalizeTx,
       );
-      console.error("Error details:", errorDetails);
-      
-      let errorMsg = "Unknown error occurred";
-      if (error instanceof Error) {
-        errorMsg = error.message;
-      } else if (typeof error === 'string') {
-        errorMsg = error;
-      } else if (errorDetails) {
-        errorMsg = errorDetails;
+      if (!finalizeTx || !finalizeTx.receipt) {
+        throw new Error(
+          "finalizeNFT transaction was submitted but no receipt was returned",
+        );
       }
 
-      if (errorMsg.includes("insufficient funds")) {
-        errorMsg =
-          "Insufficient funds to cover the mint fee and gas. Please add more ETH to your wallet.";
-      } else if (
-        errorMsg.toLowerCase().includes("revert")
-      ) {
-        errorMsg = `Transaction reverted by the contract. Details: ${errorMsg}`;
-      }
-      setErrorMessage(errorMsg);
-      setMintStatus("error");
+      setTxHash(finalizeTx.receipt.transactionHash);
+      listenForTransactionEvents(
+        finalizeTx.receipt.transactionHash,
+      );
+      setMintStatus("success");
+      
+      // Award Mojo tokens after successful mint
+      setTimeout(async () => {
+        try {
+          await handleAwardMojoTokens();
+        } catch (tokenError) {
+          console.error(
+            "Error in delayed token award:",
+            tokenError,
+          );
+        }
+      }, 5000);
+    } catch (txError: unknown) {
+      const error = txError as {
+        name?: string;
+        code?: string;
+        reason?: string;
+        method?: string;
+        transaction?: any;
+        data?: any;
+        message?: string;
+      };
+      console.error("Detailed Transaction Error:", {
+        error: txError,
+        name: error.name,
+        code: error.code,
+        reason: error.reason,
+        method: error.method,
+        transaction: error.transaction,
+        data: error.data,
+        message: error.message,
+        // Add additional debugging info
+        contractAddress: NFT_CONTRACT_ADDRESS,
+        mintFee: mintFee?.toString(),
+        narrativePath,
+        address,
+        // Add ABI validation info
+        mintNFTParams: {
+          to: address,
+          path: narrativePath,
+          value: EXPECTED_MINT_FEE_WEI
+        },
+        finalizeNFTParams: {
+          to: address,
+          finalURI: imageUrl,
+          path: narrativePath
+        }
+      });
+      throw txError;
     }
   };
 
