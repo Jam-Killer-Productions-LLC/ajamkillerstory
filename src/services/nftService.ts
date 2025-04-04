@@ -38,15 +38,15 @@ export class NFTContractService {
   ): Promise<BigNumber> {
     // Define image URLs for each path
     const pathImages = {
-      A: "ipfs://QmQwVHy35zjGRqLiVCrnV23BsYfLvhTgvWTmkwFfsR4Jkn/PathA-image.jpeg", // Replace with actual Path A image hash
-      B: "ipfs://QmQwVHy35zjGRqLiVCrnV23BsYfLvhTgvWTmkwFfsR4Jkn/PathB-image.jpeg", // Replace with actual Path B image hash
-      C: "ipfs://QmQwVHy35zjGRqLiVCrnV23BsYfLvhTgvWTmkwFfsR4Jkn/PathC-image.jpeg"  // Replace with actual Path C image hash
+      A: "https://bafybeiakvemnjhgbgknb4luge7kayoyslnkmgqcw7xwaoqmr5l6ujnalum.ipfs.dweb.link?filename=dktjnft1.gif",
+      B: "https://bafybeiapjhb52gxhsnufm2mcrufk7d35id3lnexwftxksbcmbx5hsuzore.ipfs.dweb.link?filename=dktjnft2.gif",
+      C: "https://bafybeifoew7nyl5p5xxroo3y4lhb2fg2a6gifmd7mdav7uibi4igegehjm.ipfs.dweb.link?filename=dktjnft3.gif"
     };
 
     const metadata = {
       name: `Jam Killer Story - Path ${path}`,
       description: `A unique NFT from the Jam Killer Story collection, following path ${path}`,
-      image: pathImages[path as keyof typeof pathImages] || pathImages.A, // Fallback to Path A if path is invalid
+      image: pathImages[path as keyof typeof pathImages] || pathImages.A,
       attributes: [
         { trait_type: "Narrative Path", value: path },
         { trait_type: "Mojo Score", value: mojoScore },
