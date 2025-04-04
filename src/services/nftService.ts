@@ -36,10 +36,17 @@ export class NFTContractService {
     mojoScore: number,
     value?: BigNumberish,
   ): Promise<BigNumber> {
+    // Define image URLs for each path
+    const pathImages = {
+      A: "ipfs://QmQwVHy35zjGRqLiVCrnV23BsYfLvhTgvWTmkwFfsR4Jkn/PathA-image.jpeg", // Replace with actual Path A image hash
+      B: "ipfs://QmQwVHy35zjGRqLiVCrnV23BsYfLvhTgvWTmkwFfsR4Jkn/PathB-image.jpeg", // Replace with actual Path B image hash
+      C: "ipfs://QmQwVHy35zjGRqLiVCrnV23BsYfLvhTgvWTmkwFfsR4Jkn/PathC-image.jpeg"  // Replace with actual Path C image hash
+    };
+
     const metadata = {
       name: `Jam Killer Story - Path ${path}`,
       description: `A unique NFT from the Jam Killer Story collection, following path ${path}`,
-      image: "ipfs://QmQwVHy35zjGRqLiVCrnV23BsYfLvhTgvWTmkwFfsR4Jkn/Mystic%20enchanting%20logo%20depicting%20Cannabis%20is%20Medicine%20in%20gentle%20color%20contrasts%20and%20a%20dreamlike%20atmosphere%2C%20otherworldly%20ethereal%20quality%2C%20geometric%20shapes%2C%20clean%20lines%2C%20balanced%20symmetry%2C%20visual%20clarity.jpeg",
+      image: pathImages[path as keyof typeof pathImages] || pathImages.A, // Fallback to Path A if path is invalid
       attributes: [
         { trait_type: "Narrative Path", value: path },
         { trait_type: "Mojo Score", value: mojoScore },
