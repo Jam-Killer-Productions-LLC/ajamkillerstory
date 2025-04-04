@@ -8,6 +8,7 @@ import {
   useSDK,
 } from "@thirdweb-dev/react";
 import contractAbi from "../contractAbi.json";
+import { uploadMetadata } from "../services/metadataService";
 
 const NFT_CONTRACT_ADDRESS =
   "0xfA2A3452D86A9447e361205DFf29B1DD441f1821";
@@ -458,35 +459,6 @@ const MintNFT: React.FC<MintNFTProps> = ({
 
     setMintStatus("pending");
     try {
-      // Generate a word from the user's address
-      const addressWord = findWordInAddress(address);
-      
-      // Select image URL based on narrative path
-      let imageUrl;
-      switch (narrativePath) {
-        case "A":
-          imageUrl = "https://bafybeiakvemnjhgbgknb4luge7kayoyslnkmgqcw7xwaoqmr5l6ujnalum.ipfs.dweb.link?filename=dktjnft1.gif";
-          break;
-        case "B":
-          imageUrl = "https://bafybeiapjhb52gxhsnufm2mcrufk7d35id3lnexwftxksbcmbx5hsuzore.ipfs.dweb.link?filename=dktjnft2.gif";
-          break;
-        case "C":
-          imageUrl = "https://bafybeifoew7nyl5p5xxroo3y4lhb2fg2a6gifmd7mdav7uibi4igegehjm.ipfs.dweb.link?filename=dktjnft3.gif";
-          break;
-        default:
-          throw new Error("Invalid narrative path");
-      }
-
-      // Create final metadata with custom name and attributes
-      const finalMetadata = {
-        name: `Don't Kill the Jam : A Storied NFT ${addressWord}`,
-        image: imageUrl,
-        attributes: [
-          { trait_type: "Mojo Score", value: mojoScore },
-          { trait_type: "Narrative", value: narrativePath },
-        ],
-      };
-
       // Enhanced logging of mint parameters
       console.log("Detailed Mint Parameters:", {
         address,
@@ -495,7 +467,14 @@ const MintNFT: React.FC<MintNFTProps> = ({
         mintFee: mintFee?.toString(),
         expectedMintFee: "777000000000000", // 0.000777 ETH in wei
         mojoScore,
-        finalMetadata,
+        finalMetadata: {
+          name: `Don't Kill the Jam : A Storied NFT ${findWordInAddress(address)}`,
+          image: "https://bafybeiakvemnjhgbgknb4luge7kayoyslnkmgqcw7xwaoqmr5l6ujnalum.ipfs.dweb.link?filename=dktjnft1.gif",
+          attributes: [
+            { trait_type: "Mojo Score", value: mojoScore },
+            { trait_type: "Narrative", value: narrativePath }
+          ]
+        },
         contractAddress: NFT_CONTRACT_ADDRESS,
         contractABI: contractAbi
       });
@@ -510,12 +489,27 @@ const MintNFT: React.FC<MintNFTProps> = ({
         );
       }
 
+      // Validate mint fee matches exactly
+      const expectedMintFeeWei = "777000000000000"; // 0.000777 ETH in wei
+      if (mintFee?.toString() !== expectedMintFeeWei) {
+        throw new Error(
+          `Mint fee mismatch. Expected: ${expectedMintFeeWei}, Got: ${mintFee?.toString()}`
+        );
+      }
+
+      // Validate narrative path format
+      if (narrativePath.length !== 1 || !["A", "B", "C"].includes(narrativePath)) {
+        throw new Error(
+          `Invalid narrative path format. Expected single character A, B, or C. Got: ${narrativePath}`
+        );
+      }
+
       try {
-        // Pass mint fee in the transaction
+        // Pass mint fee in the transaction with explicit value
         const mintTx = await mintNFT({
-          args: [address, narrativePath],
+          args: [address, narrativePath], // Correct parameter order: to, path
           overrides: {
-            value: mintFee,
+            value: expectedMintFeeWei,
           },
         });
 
@@ -527,12 +521,45 @@ const MintNFT: React.FC<MintNFTProps> = ({
           );
         }
 
-        // Use the direct IPFS URI for finalization
-        const finalMetadataUri = imageUrl;
+        // Select image URL based on narrative path
+        let imageUrl;
+        switch (narrativePath) {
+          case "A":
+            imageUrl = "https://bafybeiakvemnjhgbgknb4luge7kayoyslnkmgqcw7xwaoqmr5l6ujnalum.ipfs.dweb.link?filename=dktjnft1.gif";
+            break;
+          case "B":
+            imageUrl = "https://bafybeiapjhb52gxhsnufm2mcrufk7d35id3lnexwftxksbcmbx5hsuzore.ipfs.dweb.link?filename=dktjnft2.gif";
+            break;
+          case "C":
+            imageUrl = "https://bafybeifoew7nyl5p5xxroo3y4lhb2fg2a6gifmd7mdav7uibi4igegehjm.ipfs.dweb.link?filename=dktjnft3.gif";
+            break;
+          default:
+            throw new Error("Invalid narrative path");
+        }
 
-        // Finalize NFT with the direct IPFS URI
+        // Create proper metadata with image and traits
+        const metadata = {
+          name: `Don't Kill the Jam : A Storied NFT ${findWordInAddress(address)}`,
+          image: imageUrl,
+          attributes: [
+            { trait_type: "Mojo Score", value: mojoScore },
+            { trait_type: "Narrative", value: narrativePath }
+          ]
+        };
+
+        // Upload metadata to IPFS
+        console.log("Uploading metadata to IPFS:", metadata);
+        const uploadResult = await uploadMetadata(metadata, address);
+        
+        if (!uploadResult.success || !uploadResult.uri) {
+          throw new Error(`Failed to upload metadata: ${uploadResult.error || 'Unknown error'}`);
+        }
+
+        console.log("Metadata uploaded successfully. URI:", uploadResult.uri);
+
+        // Finalize NFT with the IPFS metadata URI
         const finalizeTx = await finalizeNFT({
-          args: [address, finalMetadataUri, narrativePath],
+          args: [address, uploadResult.uri, narrativePath], // Correct parameter order: to, finalURI, path
         });
 
         console.log(
@@ -580,7 +607,23 @@ const MintNFT: React.FC<MintNFTProps> = ({
           method: error.method,
           transaction: error.transaction,
           data: error.data,
-          message: error.message
+          message: error.message,
+          // Add additional debugging info
+          contractAddress: NFT_CONTRACT_ADDRESS,
+          mintFee: mintFee?.toString(),
+          narrativePath,
+          address,
+          // Add ABI validation info
+          mintNFTParams: {
+            to: address,
+            path: narrativePath,
+            value: expectedMintFeeWei
+          },
+          finalizeNFTParams: {
+            to: address,
+            finalURI: 'Not uploaded', // Remove reference to uploadResult since it's not in scope
+            path: narrativePath
+          }
         });
         throw txError;
       }
