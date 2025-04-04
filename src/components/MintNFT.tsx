@@ -183,6 +183,7 @@ const MintNFT: React.FC<MintNFTProps> = ({
   const sdk = useSDK();
   const [, switchNetwork] = useNetwork();
   const isMismatched = useNetworkMismatch();
+  const [isOnOptimism, setIsOnOptimism] = useState<boolean>(false);
 
   // Initialize contract
   const { contract, isLoading: isContractLoading } =
@@ -228,37 +229,19 @@ const MintNFT: React.FC<MintNFTProps> = ({
   const [withdrawTxHash, setWithdrawTxHash] =
     useState<string>("");
 
-  // Check if connected wallet is the contract owner and handle network switching
+  // Check if connected wallet is the contract owner
   useEffect(() => {
-    const handleNetworkSwitch = async () => {
-      if (!sdk || !switchNetwork) return;
-
-      try {
-        const currentChain = await sdk.wallet.getChainId();
-        console.log("Current chain ID:", currentChain);
-
-        if (currentChain !== 10) { // 10 is Optimism's chain ID
-          console.log("Switching to Optimism network...");
-          await switchNetwork(10);
-          console.log("Successfully switched to Optimism network");
-        }
-      } catch (error) {
-        console.error("Error switching network:", error);
-      }
-    };
-
     if (address) {
       setIsWalletReady(true);
       setIsOwner(
         address.toLowerCase() ===
           CONTRACT_OWNER_ADDRESS.toLowerCase(),
       );
-      handleNetworkSwitch();
     } else {
       setIsWalletReady(false);
       setIsOwner(false);
     }
-  }, [address, sdk, switchNetwork]);
+  }, [address]);
 
   // Calculate Mojo score when narrative path changes
   useEffect(() => {
@@ -266,6 +249,24 @@ const MintNFT: React.FC<MintNFTProps> = ({
       setMojoScore(calculateMojoScore(narrativePath));
     }
   }, [narrativePath]);
+
+  // Check network
+  useEffect(() => {
+    const checkNetwork = async () => {
+      if (!sdk) return;
+      try {
+        const chainId = await sdk.wallet.getChainId();
+        setIsOnOptimism(chainId === 10);
+      } catch (error) {
+        console.error("Error checking network:", error);
+        setIsOnOptimism(false);
+      }
+    };
+
+    if (address) {
+      checkNetwork();
+    }
+  }, [address, sdk]);
 
   // Function to render the mint status
   const renderMintStatus = () => {
@@ -361,6 +362,20 @@ const MintNFT: React.FC<MintNFTProps> = ({
           <p>
             Your wallet is not properly connected. Please
             reconnect your wallet.
+          </p>
+        </div>
+      );
+    }
+
+    // Check if we're on Optimism
+    if (!isOnOptimism) {
+      return (
+        <div className="network-prompt">
+          <p>
+            Please switch your wallet to the Optimism network to mint your NFT.
+          </p>
+          <p className="network-help">
+            Need help? In your wallet, look for the network selector and choose "Optimism".
           </p>
         </div>
       );
