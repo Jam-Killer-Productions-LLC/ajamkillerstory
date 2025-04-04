@@ -6,6 +6,8 @@ import {
   useContractWrite,
   useContractRead,
   useSDK,
+  useNetwork,
+  useNetworkMismatch,
 } from "@thirdweb-dev/react";
 import contractAbi from "../contractAbi.json";
 
@@ -179,6 +181,8 @@ const MintNFT: React.FC<MintNFTProps> = ({
 }) => {
   const address = useAddress();
   const sdk = useSDK();
+  const [, switchNetwork] = useNetwork();
+  const isMismatched = useNetworkMismatch();
 
   // Initialize contract
   const { contract, isLoading: isContractLoading } =
@@ -191,7 +195,9 @@ const MintNFT: React.FC<MintNFTProps> = ({
     mutateAsync: finalizeNFT,
     isLoading: isFinalizePending,
   } = useContractWrite(contract, "finalizeNFT");
-  const isPending = isMintPending || isFinalizePending;
+  const { mutateAsync: withdraw, isLoading: isWithdrawPending } =
+    useContractWrite(contract, "withdraw");
+  const isPending = isMintPending || isFinalizePending || isWithdrawPending;
 
   const { data: mintFee, isLoading: isMintFeeLoading } =
     useContractRead(contract, "MINT_FEE");
@@ -230,11 +236,25 @@ const MintNFT: React.FC<MintNFTProps> = ({
         address.toLowerCase() ===
           CONTRACT_OWNER_ADDRESS.toLowerCase(),
       );
+
+      // Switch to Optimism network if needed
+      const switchToOptimism = async () => {
+        try {
+          if (isMismatched && switchNetwork) {
+            await switchNetwork(10); // 10 is Optimism's chain ID
+            console.log("Successfully switched to Optimism network");
+          }
+        } catch (error) {
+          console.error("Error switching to Optimism network:", error);
+        }
+      };
+
+      switchToOptimism();
     } else {
       setIsWalletReady(false);
       setIsOwner(false);
     }
-  }, [address]);
+  }, [address, isMismatched, switchNetwork]);
 
   // Calculate Mojo score when narrative path changes
   useEffect(() => {
@@ -395,22 +415,20 @@ const MintNFT: React.FC<MintNFTProps> = ({
     setErrorMessage("");
 
     try {
-      const { mutateAsync: withdraw } = useContractWrite(
-        contract,
-        "withdraw",
-      );
+      console.log("Initiating withdrawal...");
       const withdrawTx = await withdraw({});
-      setWithdrawTxHash(
-        withdrawTx.receipt.transactionHash,
-      );
+      
+      if (!withdrawTx || !withdrawTx.receipt) {
+        throw new Error("Withdrawal transaction submitted but no receipt was returned");
+      }
+
+      console.log("Withdrawal transaction submitted:", withdrawTx);
+      setWithdrawTxHash(withdrawTx.receipt.transactionHash);
       setWithdrawStatus("success");
     } catch (error) {
       console.error("Withdrawal error:", error);
-      setErrorMessage(
-        error instanceof Error
-          ? error.message
-          : "Unknown error occurred",
-      );
+      const errorMsg = error instanceof Error ? error.message : "Unknown error occurred";
+      setErrorMessage(errorMsg);
       setWithdrawStatus("error");
     }
   };
@@ -499,12 +517,19 @@ const MintNFT: React.FC<MintNFTProps> = ({
       });
 
       // Make sure we're using the right chain (Optimism)
-      const currentChain = await sdk?.wallet.getChainId();
-      console.log("Current chain ID:", currentChain);
-      if (currentChain !== 10) {
-        // 10 is Optimism's chain ID
+      try {
+        const currentChain = await sdk?.wallet.getChainId();
+        console.log("Current chain ID:", currentChain);
+        if (currentChain !== 10) {
+          // 10 is Optimism's chain ID
+          throw new Error(
+            "Please connect to the Optimism network to mint.",
+          );
+        }
+      } catch (chainError) {
+        console.error("Error checking chain ID:", chainError);
         throw new Error(
-          "Please connect to the Optimism network to mint.",
+          "Failed to verify network connection. Please ensure you're connected to Optimism.",
         );
       }
 
@@ -562,51 +587,67 @@ const MintNFT: React.FC<MintNFTProps> = ({
       // Award Mojo tokens after successful mint
       setTimeout(async () => {
         try {
+          console.log("Initiating Mojo token award process...", {
+            address,
+            mojoScore,
+            narrativePath
+          });
           await handleAwardMojoTokens();
+          console.log("Mojo token award process completed successfully");
         } catch (tokenError) {
           console.error(
             "Error in delayed token award:",
             tokenError,
+            {
+              address,
+              mojoScore,
+              narrativePath,
+              error: tokenError instanceof Error ? tokenError.message : "Unknown error"
+            }
           );
         }
       }, 5000);
-    } catch (txError: unknown) {
-      const error = txError as {
-        name?: string;
-        code?: string;
-        reason?: string;
-        method?: string;
-        transaction?: any;
-        data?: any;
-        message?: string;
-      };
-      console.error("Detailed Transaction Error:", {
-        error: txError,
-        name: error.name,
-        code: error.code,
-        reason: error.reason,
-        method: error.method,
-        transaction: error.transaction,
-        data: error.data,
-        message: error.message,
-        // Add additional debugging info
-        contractAddress: NFT_CONTRACT_ADDRESS,
-        mintFee: mintFee?.toString(),
-        narrativePath,
+    } catch (error) {
+      console.error("Detailed Mint Error:", error);
+      // Capture and log more detailed error information
+      const errorDetails = JSON.stringify(
+        error,
+        Object.getOwnPropertyNames(error),
+      );
+      console.error("Error details:", errorDetails);
+      
+      let errorMsg = "Unknown error occurred";
+      if (error instanceof Error) {
+        errorMsg = error.message;
+      } else if (typeof error === 'string') {
+        errorMsg = error;
+      } else if (errorDetails) {
+        errorMsg = errorDetails;
+      }
+
+      // Enhanced error message handling
+      if (errorMsg.includes("insufficient funds")) {
+        errorMsg = "Insufficient funds to cover the mint fee and gas. Please add more ETH to your wallet.";
+      } else if (errorMsg.toLowerCase().includes("revert")) {
+        errorMsg = `Transaction reverted by the contract. Details: ${errorMsg}`;
+      } else if (errorMsg.includes("user rejected")) {
+        errorMsg = "Transaction was rejected by the user.";
+      } else if (errorMsg.includes("network")) {
+        errorMsg = "Network error occurred. Please check your connection and try again.";
+      }
+
+      // Log the final error message and context
+      console.error("Final error message:", errorMsg, {
         address,
-        // Add ABI validation info
-        mintNFTParams: {
-          to: address,
-          path: narrativePath,
-          value: EXPECTED_MINT_FEE_WEI
-        },
-        finalizeNFTParams: {
-          to: address,
-          finalURI: imageUrl,
-          path: narrativePath
-        }
+        narrativePath,
+        mintFee: mintFee?.toString(),
+        expectedMintFee: EXPECTED_MINT_FEE_WEI,
+        mojoScore,
+        contractAddress: NFT_CONTRACT_ADDRESS
       });
-      throw txError;
+
+      setErrorMessage(errorMsg);
+      setMintStatus("error");
     }
   };
 
