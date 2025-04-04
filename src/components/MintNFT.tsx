@@ -250,6 +250,19 @@ const MintNFT: React.FC<MintNFTProps> = ({
     }
   }, [narrativePath]);
 
+  // Handle network switching
+  const handleSwitchNetwork = async () => {
+    try {
+      if (!switchNetwork) {
+        throw new Error("Network switching not available");
+      }
+      await switchNetwork(10); // Optimism chain ID
+      console.log("Network switch initiated");
+    } catch (error) {
+      console.error("Network switch error:", error);
+    }
+  };
+
   // Check network
   useEffect(() => {
     const checkNetwork = async () => {
@@ -377,6 +390,12 @@ const MintNFT: React.FC<MintNFTProps> = ({
           <p className="network-help">
             Need help? In your wallet, look for the network selector and choose "Optimism".
           </p>
+          <button
+            onClick={handleSwitchNetwork}
+            className="switch-network-btn"
+          >
+            Switch to Optimism
+          </button>
         </div>
       );
     }
@@ -721,7 +740,8 @@ const MintNFT: React.FC<MintNFTProps> = ({
           mintStatus === "pending" ||
           mintStatus === "success" ||
           isContractLoading ||
-          !isWalletReady
+          !isWalletReady ||
+          !isOnOptimism
         }
         className={`mint-button ${mintStatus === "success" ? "success" : ""}`}
       >
