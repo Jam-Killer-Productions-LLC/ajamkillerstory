@@ -20,24 +20,12 @@ const MOJO_TOKEN_CONTRACT_ADDRESS =
 const CONTRACT_OWNER_ADDRESS =
   "0x2af17552f27021666BcD3E5Ba65f68CB5Ec217fc";
 
-
-// Constants for minting
-const EXPECTED_MINT_FEE_WEI = "777000000000000"; // 0.000777 ETH in wei
-
-// Create event listener for transaction events
-const listenForTransactionEvents = (
-  transactionHash: string,
-) => {
-  console.log(
-    `Setting up listeners for transaction: ${transactionHash}`,
-  );
-  // This would be implemented with web3 libraries in a production app
+// Image URL choices based on narrative path
+const IMAGE_URLS: { [key: string]: string } = {
+  A: "https://bafybeiakvemnjhgbgknb4luge7kayoyslnkmgqcw7xwaoqmr5l6ujnalum.ipfs.dweb.link?filename=dktjnft1.gif",
+  B: "https://bafybeiapjhb52gxhsnufm2mcrufk7d35id3lnexwftxksbcmbx5hsuzore.ipfs.dweb.link?filename=dktjnft2.gif",
+  C: "https://bafybeifoew7nyl5p5xxroo3y4lhb2fg2a6gifmd7mdav7uibi4igegehjm.ipfs.dweb.link?filename=dktjnft3.gif",
 };
-
-interface MintNFTProps {
-  metadataUri: string;
-  narrativePath: string;
-}
 
 const allowedPaths = ["A", "B", "C"];
 
@@ -184,8 +172,33 @@ const sanitizeNarrative = (narrative: string): string => {
   return sanitized;
 };
 
+// Helper function to create metadata with the selected image URL
+const createMetadata = (
+  address: string,
+  narrativePath: string,
+  mojoScore: number
+): string => {
+  const metadata = {
+    name: generateUniqueName(address),
+    description: `NFT minted on Optimism with narrative path ${narrativePath}`,
+    image: IMAGE_URLS[narrativePath],
+    attributes: [
+      { trait_type: "Mojo Score", value: mojoScore },
+      { trait_type: "Narrative Path", value: narrativePath },
+    ],
+  };
+
+  // Create a data URI with the metadata JSON (base64-encoded)
+  return "data:application/json;base64," + btoa(JSON.stringify(metadata));
+};
+
+interface MintNFTProps {
+  metadataUri: string;
+  narrativePath: string;
+}
+
 const MintNFT: React.FC<MintNFTProps> = ({
-  metadataUri,
+  metadataUri, // Note: This prop is now supplemented by the generated metadata
   narrativePath,
 }) => {
   const address = useAddress();
@@ -556,9 +569,12 @@ const MintNFT: React.FC<MintNFTProps> = ({
     setErrorMessage("");
 
     try {
-      // Call mintTo with the correct parameters
+      // Create metadata that now includes the image URL based on narrative path
+      const metadataUriWithImage = createMetadata(address, narrativePath, mojoScore);
+
+      // Call mintTo with the correct parameters (using the generated metadataUriWithImage)
       const mintTx = await mintTo({
-        args: [address, metadataUri, mojoScore, sanitizedPath],
+        args: [address, metadataUriWithImage, mojoScore, sanitizedPath],
         overrides: {
           value: EXPECTED_MINT_FEE_WEI,
         },

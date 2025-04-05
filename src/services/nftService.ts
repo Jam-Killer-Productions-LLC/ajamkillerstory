@@ -30,61 +30,45 @@ export class NFTContractService {
   }
 
   // Write Functions
+  
+  // New mintNFT method using metadata upload
   async mintNFT(
     to: string,
-    path: string,
+    metadata: {
+      name: string;
+      description: string;
+      image: string;
+      attributes: { trait_type: string; value: any }[];
+    },
     mojoScore: number,
-    value?: BigNumberish,
-  ): Promise<BigNumber> {
-    // New: Ensure mojoScore is provided
-    if (mojoScore === undefined || mojoScore === null) {
-      throw new Error("mojoScore is required for minting NFT");
-    }
-    // Ensure value is set; if not, use the mint fee from the contract
-    if (!value) {
-      value = await this.MINT_FEE();
-    }
-    // Check if the signer's balance is sufficient
-    const signer = this.contract.signer;
-    const currentBalance = await signer.getBalance();
-    if (currentBalance.lt(BigNumber.from(value))) {
-      throw new Error("Insufficient funds to mint NFT");
-    }
-    
-    // Updated: Use proper ipfs:// URIs (without query parameters) for each path.
-    const pathImages = {
-      A: "ipfs://bafybeiakvemnjhgbgknb4luge7kayoyslnkmgqcw7xwaoqmr5l6ujnalum",
-      B: "ipfs://bafybeiapjhb52gxhsnufm2mcrufk7d35id3lnexwftxksbcmbx5hsuzore",
-      C: "ipfs://bafybeifoew7nyl5p5xxroo3y4lhb2fg2a6gifmd7mdav7uibi4igegehjm"
-    };
+    narrative: string,
+    value: string
+  ): Promise<any> {
+    // First, upload metadata to get tokenURI
+    const tokenURI = await uploadMetadata(metadata);
+    // Call the contract's mintTo method with all required parameters
+    const mintTx = await this.contract.mintTo(
+      to,
+      tokenURI,
+      mojoScore,
+      narrative,
+      { value }
+    );
+    return mintTx;
+  }
 
-    // Determine rarity based on mojoScore (for example purposes)
-    const rarity = mojoScore >= 9000 ? "Legendary" : mojoScore >= 8000 ? "Epic" : "Rare";
-
-    // Build the final metadata in the requested format
+  // Example metadata preparation usage (for reference in integration)
+  prepareMetadata(path: string, pathImages: Record<string, string>, rarity: string, mojoScore: number) {
     const metadata = {
       name: "My Cool NFT",
       description: "An awesome NFT from my collection",
-      image: pathImages[path as keyof typeof pathImages] || pathImages.A,
+      image: pathImages[path as keyof typeof pathImages], // using the provided image link for each path (A, B, C etc.)
       attributes: [
         { trait_type: "Rarity", value: rarity },
         { trait_type: "Power", value: mojoScore }
       ]
     };
-
-    // ...existing code for minting...
-    return await this.contract.erc721.mintTo(to, {
-      metadata,
-      value,
-    });
-  }
-
-  async finalizeNFT(
-    to: string,
-    finalURI: string,
-    path: string,
-  ): Promise<BigNumber> {
-    return await this.contract.erc721.finalizeNFT(to, finalURI, path);
+    return metadata;
   }
 }
 
