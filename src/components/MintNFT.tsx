@@ -19,6 +19,7 @@ const MOJO_TOKEN_CONTRACT_ADDRESS =
   "0xf9e7D3cd71Ee60C7A3A64Fa7Fcb81e610Ce1daA5";
 const CONTRACT_OWNER_ADDRESS =
   "0x2af17552f27021666BcD3E5Ba65f68CB5Ec217fc";
+const OPTIMISM_CHAIN_ID = 10;
 
 // Image URL choices based on narrative path
 const IMAGE_URLS: { [key: string]: string } = {
@@ -282,7 +283,7 @@ const MintNFT: React.FC<MintNFTProps> = ({
     }
   }, [narrativePath]);
 
-  // Handle network switching
+  // Handle network switching - FIXED
   const handleSwitchNetwork = async () => {
     setNetworkError("");
     try {
@@ -290,17 +291,9 @@ const MintNFT: React.FC<MintNFTProps> = ({
         throw new Error("Network switching not available in your wallet");
       }
       
-      // First try to switch network
-      await switchNetwork(10);
+      await switchNetwork(OPTIMISM_CHAIN_ID);
+      // No need to manually verify - useNetwork hook will handle the update
       
-      // Verify the switch was successful
-      const chainId = await sdk?.wallet.getChainId();
-      if (chainId !== 10) {
-        throw new Error("Failed to switch to Optimism network");
-      }
-      
-      setIsOnOptimism(true);
-      console.log("Successfully switched to Optimism network");
     } catch (error) {
       console.error("Network switch error:", error);
       setNetworkError(
@@ -311,25 +304,31 @@ const MintNFT: React.FC<MintNFTProps> = ({
     }
   };
 
-  // Check network
+  // Check network - FIXED
   useEffect(() => {
     const checkNetwork = async () => {
       if (!sdk) return;
       try {
         const chainId = await sdk.wallet.getChainId();
-        setIsOnOptimism(chainId === 10);
+        setIsOnOptimism(chainId === OPTIMISM_CHAIN_ID);
         setNetworkError("");
       } catch (error) {
         console.error("Error checking network:", error);
         setIsOnOptimism(false);
-        setNetworkError("Failed to check network status");
       }
     };
 
-    if (address) {
+    if (address && sdk) {
       checkNetwork();
     }
-  }, [address, sdk]);
+  }, [address, sdk, isMismatched]);
+
+  // Add auto network switch - NEW
+  useEffect(() => {
+    if (isMismatched && address) {
+      handleSwitchNetwork();
+    }
+  }, [isMismatched, address]);
 
   // Function to render the mint status
   const renderMintStatus = () => {
@@ -543,7 +542,7 @@ const MintNFT: React.FC<MintNFTProps> = ({
     }
   };
 
-  // Function to handle minting
+  // Function to handle minting - FIXED
   const handleMint = async () => {
     if (!address || !contract) {
       setErrorMessage("Please connect your wallet");
@@ -576,7 +575,7 @@ const MintNFT: React.FC<MintNFTProps> = ({
       const mintTx = await mintTo({
         args: [address, metadataUriWithImage, mojoScore, sanitizedPath],
         overrides: {
-          value: EXPECTED_MINT_FEE_WEI,
+          value: mintFee, // FIXED: Use mintFee instead of EXPECTED_MINT_FEE_WEI
         },
       });
 
