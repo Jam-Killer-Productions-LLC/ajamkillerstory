@@ -119,7 +119,7 @@ const createMetadata = (
       { trait_type: "Narrative Path", value: narrativePath },
     ],
   };
-  return JSON.stringify(metadata);
+  return "data:application/json;base64," + btoa(JSON.stringify(metadata));
 };
 
 interface MintNFTProps {
@@ -140,6 +140,7 @@ const MintNFT: React.FC<MintNFTProps> = ({ narrativePath }) => {
   const [tokenAwardStatus, setTokenAwardStatus] = useState<"pending" | "success" | "error" | "idle">("idle");
   const [tokenTxHash, setTokenTxHash] = useState("");
   const [isWalletReady, setIsWalletReady] = useState(false);
+  const [isMinting, setIsMinting] = useState(false);
 
   const { contract, error: contractError } = useContract(NFT_CONTRACT_ADDRESS, contractAbi);
   const { mutateAsync: mintTo, error: mintError } = useContractWrite(contract, "mintTo");
@@ -227,26 +228,27 @@ const MintNFT: React.FC<MintNFTProps> = ({ narrativePath }) => {
       setMintStatus("error");
       return;
     }
+    if (isMinting) {
+      setErrorMessage("Mint already in progress");
+      setMintStatus("error");
+      return;
+    }
 
+    setIsMinting(true);
     setMintStatus("pending");
     setErrorMessage("");
 
     try {
       const path = getNarrativePath(sanitizedPath);
-      const metadata = createMetadata(address, path, sanitizedPath, mojoScore);
+      const tokenURI = createMetadata(address, path, sanitizedPath, mojoScore);
       const fee = mintFee && ethers.BigNumber.from(mintFee).gt(0) ? mintFee : ethers.BigNumber.from("777000000000000");
 
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error("Transaction timed out")), 10000)
-      );
+      console.log("Minting with:", { tokenURI, mojoScore, narrative: sanitizedPath, fee: fee.toString() });
 
-      const mintTx = await Promise.race([
-        mintTo({
-          args: [address, metadata, mojoScore, sanitizedPath],
-          overrides: { value: fee },
-        }),
-        timeoutPromise,
-      ]);
+      const mintTx = await mintTo({
+        args: [address, tokenURI, mojoScore, sanitizedPath],
+        overrides: { value: fee },
+      });
 
       if (!mintTx || !mintTx.receipt) {
         throw new Error("Mint transaction failed");
@@ -276,9 +278,12 @@ const MintNFT: React.FC<MintNFTProps> = ({ narrativePath }) => {
         message.includes("rejected") ? "Transaction rejected by wallet" :
         message.includes("insufficient") ? "Not enough ETH for mint" :
         message.includes("timeout") ? "Mint timed out, try again" :
-        message.includes("revert") ? "Contract rejected transaction" : message
+        message.includes("revert") ? "Contract rejected transaction" :
+        message
       );
       setMintStatus("error");
+    } finally {
+      setIsMinting(false);
     }
   };
 
@@ -340,7 +345,7 @@ const MintNFT: React.FC<MintNFTProps> = ({ narrativePath }) => {
 
       <button
         onClick={handleMint}
-        disabled={!address || !isWalletReady || !isOnOptimism || !sanitizedPath || mintStatus !== "idle"}
+        disabled={!address || !isWalletReady || !isOnOptimism || !sanitizedPath || mintStatus === "pending" || isMinting}
         className={`mint-button ${mintStatus === "success" ? "success" : ""}`}
       >
         {mintStatus === "pending" ? "Minting..." : mintStatus === "success" ? "Minted!" : "Mint NFT"}
