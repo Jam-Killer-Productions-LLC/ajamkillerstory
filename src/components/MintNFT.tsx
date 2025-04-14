@@ -1,26 +1,28 @@
+// MintNFT.tsx
 import React, { useState, useEffect, useCallback } from "react";
 import {
   useAddress,
   useContract,
   useContractWrite,
   useContractRead,
-  useNetwork,
+  useNetwork
 } from "@thirdweb-dev/react";
 import { ethers } from "ethers";
 import contractAbi from "../contractAbi.json";
 
-// Contract configuration
-const NFT_CONTRACT_ADDRESS = "0x914b1339944D48236738424e2dbdbb72a212B2F5";
+// Configuration Constants
+const NFT_CONTRACT_ADDRESS = "0x914B1339944D48236738424e2dbdbb72a212B2F5";
 const OPTIMISM_CHAIN_ID = 10;
 
+// Allowed narrative paths and their associated image URLs
+const allowedPaths = ["A", "B", "C"];
 const IMAGE_URLS: { [key: string]: string } = {
   A: "https://bafybeiakvemnjhgbgknb4luge7kayoyslnkmgqcw7xwaoqmr5l6ujnalum.ipfs.dweb.link?filename=dktjnft1.gif",
   B: "https://bafybeiapjhb52gxhsnufm2mcrufk7d35id3lnexwftxksbcmbx5hsuzore.ipfs.dweb.link?filename=dktjnft2.gif",
   C: "https://bafybeifoew7nyl5p5xxroo3y4lhb2fg2a6gifmd7mdav7uibi4igegehjm.ipfs.dweb.link?filename=dktjnft3.gif",
 };
 
-const allowedPaths = ["A", "B", "C"];
-
+// Helper function to calculate a mojo score based on narrative path
 const calculateMojoScore = (path: string): number => {
   switch (path) {
     case "A": return 8000;
@@ -30,6 +32,7 @@ const calculateMojoScore = (path: string): number => {
   }
 };
 
+// Helper function to format the mint fee for display
 const formatMintFee = (fee: any): string => {
   try {
     if (!fee || ethers.BigNumber.from(fee).eq(0)) return "$1.55";
@@ -40,13 +43,9 @@ const formatMintFee = (fee: any): string => {
   }
 };
 
-interface MintParams {
-  recipientAddress: string;
-  tokenURI: string;
-  mojoScore: number;
-  narrative: string;
-}
-
+// Props for this component:
+// - metadataUri: the final, verified NFT metadata URI (IPFS or base64)
+// - narrativePath: the chosen narrative path that must be one of allowedPaths
 interface MintNFTProps {
   metadataUri: string;
   narrativePath: string;
@@ -55,6 +54,8 @@ interface MintNFTProps {
 const MintNFT: React.FC<MintNFTProps> = ({ narrativePath, metadataUri }) => {
   const address = useAddress();
   const [, switchNetwork] = useNetwork();
+
+  // Local state variables for UI and transaction status
   const [isOnOptimism, setIsOnOptimism] = useState(false);
   const [networkError, setNetworkError] = useState("");
   const [sanitizedPath, setSanitizedPath] = useState("");
@@ -65,17 +66,19 @@ const MintNFT: React.FC<MintNFTProps> = ({ narrativePath, metadataUri }) => {
   const [isMinting, setIsMinting] = useState(false);
   const [lastNonce, setLastNonce] = useState<number | null>(null);
 
-  // Load the contract using the original hook; the contract should load as before.
+  // Load contract using your existing logic (this should load correctly)
   const { contract } = useContract(NFT_CONTRACT_ADDRESS, contractAbi);
 
-  // Here we explicitly tell thirdweb to use the payable version of mintTo (4 parameters)
+  // Use contract write with an explicit signature to select the payable mintTo version
   const { mutateAsync: mintTo } = useContractWrite(
     contract,
-    "mintTo(address,string,uint256,string)"
+    "mintTo(address,string,uint256,string)" // Explicit payable overload signature
   );
+
+  // Read the current mint fee from the contract (for display and overrides)
   const { data: mintFee, isLoading: isMintFeeLoading } = useContractRead(contract, "mintFee");
 
-  // Setup sanitized narrativePath and mojoScore; this logic remains as before.
+  // Setup sanitized narrative and calculate mojo score (assumes narrativePath is valid)
   useEffect(() => {
     if (!narrativePath || !allowedPaths.includes(narrativePath)) {
       setErrorMessage("Invalid narrative path");
@@ -86,7 +89,7 @@ const MintNFT: React.FC<MintNFTProps> = ({ narrativePath, metadataUri }) => {
     setMojoScore(calculateMojoScore(narrativePath));
   }, [narrativePath]);
 
-  // Check if the wallet is connected to Optimism.
+  // Check that the wallet is connected to the Optimism network
   useEffect(() => {
     const checkNetwork = async () => {
       if (!window.ethereum) {
@@ -97,7 +100,11 @@ const MintNFT: React.FC<MintNFTProps> = ({ narrativePath, metadataUri }) => {
         const chainIdHex: string = await window.ethereum.request({ method: "eth_chainId" });
         const chainId = parseInt(chainIdHex, 16);
         setIsOnOptimism(chainId === OPTIMISM_CHAIN_ID);
-        if (chainId !== OPTIMISM_CHAIN_ID) setNetworkError("Switch to Optimism");
+        if (chainId !== OPTIMISM_CHAIN_ID) {
+          setNetworkError("Switch to Optimism");
+        } else {
+          setNetworkError("");
+        }
       } catch {
         setIsOnOptimism(false);
         setNetworkError("Can't verify network");
@@ -106,6 +113,7 @@ const MintNFT: React.FC<MintNFTProps> = ({ narrativePath, metadataUri }) => {
     if (address) checkNetwork();
   }, [address]);
 
+  // Handler to prompt a network switch if necessary
   const handleSwitchNetwork = async () => {
     if (!switchNetwork) {
       setNetworkError("Switch to Optimism in your wallet");
@@ -120,14 +128,18 @@ const MintNFT: React.FC<MintNFTProps> = ({ narrativePath, metadataUri }) => {
     }
   };
 
+  // Main mint function following best practices for error handling and debugging
   const handleMint = useCallback(async () => {
-    // Use the same check as before: if address, contract, sanitizedPath are missing, or if already minting.
+    // Validate prerequisites before proceeding
     if (!address || !contract || !sanitizedPath || isMinting) {
       setErrorMessage(
-        !address ? "Connect your wallet" :
-        !contract ? "Contract not loaded" :
-        !sanitizedPath ? "Narrative cannot be empty" :
-        "Mint already in progress"
+        !address
+          ? "Connect your wallet"
+          : !contract
+            ? "Contract not loaded"
+            : !sanitizedPath
+              ? "Narrative cannot be empty"
+              : "Mint already in progress"
       );
       setMintStatus("error");
       return;
@@ -143,18 +155,18 @@ const MintNFT: React.FC<MintNFTProps> = ({ narrativePath, metadataUri }) => {
     setErrorMessage("");
 
     try {
-      // Use the metadataUri passed down from the final narrative—this is your confirmed, working metadata.
+      // Use the provided verified metadataUri (assumed to be correct and minted)
       const tokenURI = metadataUri;
       if (!tokenURI.startsWith("ipfs://") && !tokenURI.startsWith("data:application/json;base64,")) {
         throw new Error("Invalid metadata format");
       }
 
-      // Set the mint fee using the contract's mintFee if available.
+      // Use the mint fee from the contract if available, else fallback to a hard-coded value
       const fee = (mintFee && ethers.BigNumber.from(mintFee).gt(0))
         ? mintFee
         : ethers.BigNumber.from("777000000000000");
 
-      // Fetch nonce to help guard against duplicate calls.
+      // Use the provider to obtain the current nonce, to help guard against duplicate submissions
       const provider = new ethers.providers.Web3Provider(window.ethereum);
       const signer = provider.getSigner();
       const currentNonce = await signer.getTransactionCount("pending");
@@ -163,9 +175,16 @@ const MintNFT: React.FC<MintNFTProps> = ({ narrativePath, metadataUri }) => {
       }
       setLastNonce(currentNonce);
 
-      console.log("Minting NFT with parameters:", { address, tokenURI, mojoScore, narrative: sanitizedPath, fee, nonce: currentNonce });
-      
-      // Call the payable mintTo function explicitly.
+      console.log("Minting NFT with parameters:", {
+        address,
+        tokenURI,
+        mojoScore,
+        narrative: sanitizedPath,
+        fee: fee.toString(),
+        nonce: currentNonce
+      });
+
+      // Call the payable mintTo function explicitly with four parameters
       const tx = await mintTo({
         args: [address, tokenURI, mojoScore, sanitizedPath],
         overrides: { value: fee, nonce: currentNonce },
@@ -177,7 +196,7 @@ const MintNFT: React.FC<MintNFTProps> = ({ narrativePath, metadataUri }) => {
       const receipt = tx.receipt;
       console.log("Mint receipt:", receipt);
 
-      // Optionally, verify that exactly one Transfer event occurred.
+      // Optionally verify that only one Transfer event occurred
       const transferEvents = receipt.logs.filter((log: any) =>
         log.topics && log.topics[0].includes("Transfer")
       );
@@ -192,12 +211,17 @@ const MintNFT: React.FC<MintNFTProps> = ({ narrativePath, metadataUri }) => {
       console.error("Error minting NFT:", error);
       const message = error instanceof Error ? error.message : "Minting failed";
       setErrorMessage(
-        message.includes("cancelled") ? "Transaction cancelled by user" :
-        message.includes("rejected") ? "Transaction rejected by wallet" :
-        message.includes("insufficient") ? "Not enough ETH for mint" :
-        message.includes("revert") ? "Contract rejected transaction" :
-        message.includes("Duplicate transaction") ? "Transaction already in progress" :
-        message
+        message.includes("cancelled")
+          ? "Transaction cancelled by user"
+          : message.includes("rejected")
+            ? "Transaction rejected by wallet"
+            : message.includes("insufficient")
+              ? "Not enough ETH for mint"
+              : message.includes("revert")
+                ? "Contract rejected transaction"
+                : message.includes("Duplicate transaction")
+                  ? "Transaction already in progress"
+                  : message
       );
       setMintStatus("error");
     } finally {
@@ -264,8 +288,7 @@ const MintNFT: React.FC<MintNFTProps> = ({ narrativePath, metadataUri }) => {
 
       {mintStatus !== "success" && (
         <p>
-          Mint your NFT on Optimism.
-          {isMintFeeLoading ? " Loading fee..." : ` Fee: ${formatMintFee(mintFee)}`}
+          Mint your NFT on Optimism. {isMintFeeLoading ? "Loading fee..." : `Fee: ${formatMintFee(mintFee)}`}
         </p>
       )}
     </div>
