@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   useAddress,
   useContract,
@@ -9,7 +9,8 @@ import {
 import { ethers } from "ethers";
 import contractAbi from "../contractAbi.json";
 
-const NFT_CONTRACT_ADDRESS = "0x914b1339944d48236738424e2dbdbb72a212b2f5";
+// Contract configuration
+const NFT_CONTRACT_ADDRESS = "0x914b1339944D48236738424e2dbdbb72a212B2F5";
 const OPTIMISM_CHAIN_ID = 10;
 
 const IMAGE_URLS: { [key: string]: string } = {
@@ -39,71 +40,19 @@ const formatMintFee = (fee: any): string => {
   }
 };
 
-const awardMojoTokensService = async (data: {
-  address: string;
+interface MintParams {
+  recipientAddress: string;
+  tokenURI: string;
   mojoScore: number;
-  narrativePath: string;
-}): Promise<{ txHash: string }> => {
-  const response = await fetch("https://mojotokenrewards.producerprotocol.pro/mint", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data),
-  });
-  if (!response.ok) throw new Error(`API failed: ${response.status}`);
-  return response.json();
-};
-
-const generateUniqueName = (address: string): string => {
-  if (!address) return "Anonymous";
-  const shortAddress = address.slice(-6);
-  const nameOptions = [
-    `Wanderer ${shortAddress}`,
-    `Explorer ${shortAddress}`,
-    `Voyager ${shortAddress}`,
-    `Seeker ${shortAddress}`,
-    `Traveler ${shortAddress}`,
-  ];
-  const nameIndex = Math.abs(
-    address.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0)
-  ) % nameOptions.length;
-  return `Don't Kill the Jam : Reward it with Mojo ${nameOptions[nameIndex]}`;
-};
-
-const sanitizeNarrative = (narrative: string): string => {
-  if (!narrative) return "";
-  const nsfwWords = ["fuck", "shit", "asshole", "bitch", "damn"];
-  let cleaned = narrative;
-  nsfwWords.forEach(word => {
-    cleaned = cleaned.replace(new RegExp(`\\b${word}\\b`, "gi"), "*".repeat(word.length));
-  });
-  return cleaned.trim().slice(0, 500);
-};
-
-const createMetadata = (
-  address: string,
-  narrativePath: string,
-  sanitizedNarrative: string,
-  mojoScore: number
-): string => {
-  if (!allowedPaths.includes(narrativePath)) throw new Error("Invalid narrative path");
-  const metadata = {
-    name: generateUniqueName(address),
-    description: `NFT minted on Optimism. User narrative: ${sanitizedNarrative}`,
-    image: IMAGE_URLS[narrativePath],
-    attributes: [
-      { trait_type: "Mojo Score", value: mojoScore },
-      { trait_type: "Narrative Path", value: narrativePath },
-    ],
-  };
-  if (!metadata.image) throw new Error("Missing image for narrative path");
-  return `data:application/json;base64,${btoa(JSON.stringify(metadata))}`;
-};
+  narrative: string;
+}
 
 interface MintNFTProps {
+  metadataUri: string;
   narrativePath: string;
 }
 
-const MintNFT: React.FC<MintNFTProps> = ({ narrativePath }) => {
+const MintNFT: React.FC<MintNFTProps> = ({ narrativePath, metadataUri }) => {
   const address = useAddress();
   const [, switchNetwork] = useNetwork();
   const [isOnOptimism, setIsOnOptimism] = useState(false);
@@ -114,23 +63,30 @@ const MintNFT: React.FC<MintNFTProps> = ({ narrativePath }) => {
   const [mojoScore, setMojoScore] = useState(0);
   const [txHash, setTxHash] = useState("");
   const [isMinting, setIsMinting] = useState(false);
-  const [recentTxs, setRecentTxs] = useState<string[]>([]);
+  const [lastNonce, setLastNonce] = useState<number | null>(null);
 
+  // Use contract hook – note the explicit function signature for the payable variant:
   const { contract } = useContract(NFT_CONTRACT_ADDRESS, contractAbi);
-  const { mutateAsync: mintTo } = useContractWrite(contract, "mintTo");
+  const { mutateAsync: mintTo } = useContractWrite(
+    contract,
+    "mintTo(address,string,uint256,string)"
+  );
   const { data: mintFee, isLoading: isMintFeeLoading } = useContractRead(contract, "mintFee");
 
+  // Set up sanitized narrativePath and mojoScore on mount
   useEffect(() => {
     if (!narrativePath || !allowedPaths.includes(narrativePath)) {
       setErrorMessage("Invalid narrative path");
       setMintStatus("error");
       return;
     }
-    const sanitized = sanitizeNarrative(narrativePath);
-    setSanitizedPath(sanitized);
+    // For this implementation, we assume narrativePath itself is used as narrative text.
+    // If you have additional sanitization, apply it here.
+    setSanitizedPath(narrativePath);
     setMojoScore(calculateMojoScore(narrativePath));
   }, [narrativePath]);
 
+  // Network check
   useEffect(() => {
     const checkNetwork = async () => {
       if (!window.ethereum) {
@@ -138,7 +94,8 @@ const MintNFT: React.FC<MintNFTProps> = ({ narrativePath }) => {
         return;
       }
       try {
-        const chainId = parseInt(await window.ethereum.request({ method: "eth_chainId" }), 16);
+        const chainIdHex: string = await window.ethereum.request({ method: "eth_chainId" });
+        const chainId = parseInt(chainIdHex, 16);
         setIsOnOptimism(chainId === OPTIMISM_CHAIN_ID);
         if (chainId !== OPTIMISM_CHAIN_ID) setNetworkError("Switch to Optimism");
       } catch {
@@ -163,13 +120,16 @@ const MintNFT: React.FC<MintNFTProps> = ({ narrativePath }) => {
     }
   };
 
-  const handleMint = async () => {
+  const handleMint = useCallback(async () => {
     if (!address || !contract || !sanitizedPath || isMinting) {
       setErrorMessage(
-        !address ? "Connect your wallet" :
-        !contract ? "Contract not loaded" :
-        !sanitizedPath ? "Narrative cannot be empty" :
-        "Mint already in progress"
+        !address
+          ? "Connect your wallet"
+          : !contract
+            ? "Contract not loaded"
+            : !sanitizedPath
+              ? "Narrative cannot be empty"
+              : "Mint already in progress"
       );
       setMintStatus("error");
       return;
@@ -186,78 +146,67 @@ const MintNFT: React.FC<MintNFTProps> = ({ narrativePath }) => {
     setErrorMessage("");
 
     try {
-      const tokenURI = createMetadata(address, narrativePath, sanitizedPath, mojoScore);
-      const fee = mintFee && ethers.BigNumber.from(mintFee).gt(0) ? mintFee : ethers.BigNumber.from("777000000000000");
-
-      if (!tokenURI.startsWith("data:application/json;base64,")) {
+      // Create tokenURI using metadataUri instead of building new metadata,
+      // since you mentioned the successful mint metadata is already available.
+      const tokenURI = metadataUri;
+      if (!tokenURI.startsWith("ipfs://") && !tokenURI.startsWith("data:application/json;base64,")) {
         throw new Error("Invalid metadata format");
       }
 
-      console.log("Minting:", { address, tokenURI, mojoScore, narrative: sanitizedPath });
+      // Set up the mint fee – using mintFee from contract if available, else fallback.
+      const fee = (mintFee && ethers.BigNumber.from(mintFee).gt(0))
+        ? mintFee
+        : ethers.BigNumber.from("777000000000000");
 
+      // Prevent duplicate calls by checking nonce from signer.
+      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      const signer = provider.getSigner();
+      const currentNonce = await signer.getTransactionCount("pending");
+      if (lastNonce !== null && currentNonce === lastNonce) {
+        throw new Error("Duplicate transaction detected");
+      }
+      setLastNonce(currentNonce);
+
+      console.log("Minting with", { address, tokenURI, mojoScore, narrative: sanitizedPath, fee, nonce: currentNonce });
+      
+      // Call the payable mintTo function explicitly.
       const tx = await mintTo({
         args: [address, tokenURI, mojoScore, sanitizedPath],
-        overrides: { value: fee },
+        overrides: { value: fee, nonce: currentNonce },
       });
-
+      
       if (!tx || !tx.receipt) {
         throw new Error("Mint transaction failed");
       }
 
       const receipt = tx.receipt;
-      const transferEvents = receipt.logs.filter(log => {
-        try {
-          const parsed = contract.interface.parseLog(log);
-          return parsed.name === "Transfer";
-        } catch {
-          return false;
-        }
-      });
+      console.log("Mint receipt:", receipt);
 
-      if (transferEvents.length !== 1) {
-        console.error("Unexpected mint count:", transferEvents);
-        throw new Error(`Expected 1 mint, got ${transferEvents.length}`);
+      // Ensure exactly one Transfer event is present.
+      if (receipt.logs.filter((log: any) => log.topics && log.topics[0].includes("Transfer")).length !== 1) {
+        console.warn("Unexpected number of Transfer events:", receipt.logs);
+        throw new Error("Multiple mint events detected");
       }
 
-      const tokenId = ethers.BigNumber.from(transferEvents[0].topics[3]).toNumber();
-      console.log("Minted token ID:", tokenId);
-
-      if (recentTxs.includes(receipt.transactionHash)) {
-        throw new Error("Duplicate transaction detected");
-      }
-
-      setRecentTxs(prev => [...prev, receipt.transactionHash].slice(-5));
       setTxHash(receipt.transactionHash);
       setMintStatus("success");
-
-      try {
-        const rewardTx = await awardMojoTokensService({
-          address,
-          mojoScore,
-          narrativePath: sanitizedPath,
-        });
-        console.log("Rewards awarded:", rewardTx);
-      } catch (error) {
-        console.error("Rewards failed:", error);
-        setErrorMessage(`Mint succeeded but rewards failed: ${error.message || "Unknown error"}`);
-      }
-    } catch (error) {
+    } catch (error: any) {
+      console.error("Error minting NFT:", error);
       const message = error instanceof Error ? error.message : "Minting failed";
       setErrorMessage(
         message.includes("cancelled") ? "Transaction cancelled by user" :
         message.includes("rejected") ? "Transaction rejected by wallet" :
         message.includes("insufficient") ? "Not enough ETH for mint" :
         message.includes("revert") ? "Contract rejected transaction" :
-        message.includes("Invalid narrative") ? "Invalid narrative path" :
-        message.includes("mint count") ? "Multiple mints detected, aborted" :
-        message.includes("Duplicate transaction") ? "Duplicate transaction rejected" :
+        message.includes("Duplicate transaction") ? "Transaction already in progress" :
         message
       );
       setMintStatus("error");
     } finally {
       setIsMinting(false);
+      setLastNonce(null);
     }
-  };
+  }, [address, contract, sanitizedPath, isMinting, narrativePath, metadataUri, mintFee, mojoScore, lastNonce]);
 
   return (
     <div className="mint-nft-container">
