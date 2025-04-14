@@ -18,8 +18,6 @@ const IMAGE_URLS: { [key: string]: string } = {
   C: "https://bafybeifoew7nyl5p5xxroo3y4lhb2fg2a6gifmd7mdav7uibi4igegehjm.ipfs.dweb.link?filename=dktjnft3.gif",
 };
 
-const allowedPaths = ["A", "B", "C"];
-
 const calculateMojoScore = (path: string): number => {
   let baseScore = 0;
   switch (path) {
@@ -218,8 +216,8 @@ const MintNFT: React.FC<MintNFTProps> = ({ narrativePath }) => {
       setMintStatus("error");
       return;
     }
-    if (!sanitizedPath || !allowedPaths.includes(sanitizedPath.charAt(0))) {
-      setErrorMessage("Invalid narrative");
+    if (!sanitizedPath) {
+      setErrorMessage("Narrative cannot be empty");
       setMintStatus("error");
       return;
     }
@@ -228,7 +226,7 @@ const MintNFT: React.FC<MintNFTProps> = ({ narrativePath }) => {
     setErrorMessage("");
 
     try {
-      const metadata = createMetadata(address, sanitizedPath.charAt(0), sanitizedPath, mojoScore);
+      const metadata = createMetadata(address, sanitizedPath.split(":")[0].trim(), sanitizedPath, mojoScore);
       const fee = mintFee && ethers.BigNumber.from(mintFee).gt(0) ? mintFee : ethers.BigNumber.from("777000000000000");
 
       const timeoutPromise = new Promise((_, reject) =>
