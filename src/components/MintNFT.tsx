@@ -4,6 +4,7 @@ import {
   useContract,
   useContractWrite,
   useContractRead,
+  useSDK,
   useNetwork,
   useNetworkMismatch,
 } from "@thirdweb-dev/react";
@@ -137,6 +138,7 @@ interface MintNFTProps {
 
 const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
   const address = useAddress();
+  const sdk = useSDK();
   const [, switchNetwork] = useNetwork();
   const isMismatched = useNetworkMismatch();
   const [isOnOptimism, setIsOnOptimism] = useState<boolean>(false);
@@ -184,9 +186,9 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
 
   useEffect(() => {
     const checkNetwork = async () => {
-      if (!contract) return;
+      if (!sdk) return;
       try {
-        const chainId = await contract.getChainId();
+        const chainId = await sdk.wallet.getChainId();
         setIsOnOptimism(chainId === OPTIMISM_CHAIN_ID);
         setNetworkError("");
       } catch (error) {
@@ -195,10 +197,10 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
       }
     };
 
-    if (address && contract) {
+    if (address && sdk) {
       checkNetwork();
     }
-  }, [address, contract, isMismatched]);
+  }, [address, sdk, isMismatched]);
 
   useEffect(() => {
     if (isMismatched && address) {
