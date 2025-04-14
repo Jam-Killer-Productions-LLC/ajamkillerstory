@@ -135,6 +135,34 @@ const generateUniqueName = (address: string): string => {
   return nameOptions[nameIndex];
 };
 
+// Find a word in a crypto address
+const findWordInAddress = (address: string): string => {
+  if (!address) return "Anon";
+  
+  // Convert address to lowercase for easier matching
+  const lowercaseAddr = address.toLowerCase();
+  
+  // List of possible 4-letter words that can be formed from hex characters (a-f, 0-9)
+  // We'll treat numbers as their letter counterparts where sensible (0=o, 1=i, 3=e, etc.)
+  const possibleWords = [
+    "face", "cafe", "fade", "beef", "bead", "deed", 
+    "feed", "dead", "deaf", "acme", "a1fa", "d1ce", 
+    "f1fe", "ace", "bed", "cab", "dab", "fab"
+  ];
+  
+  // Try to find any of these words in the address
+  for (const word of possibleWords) {
+    const pattern = word.replace(/1/g, '1').replace(/0/g, '0');
+    if (lowercaseAddr.includes(pattern)) {
+      return word.toUpperCase();
+    }
+  }
+  
+  // If no matching word found, use the last 4 characters
+  const last4 = address.slice(-4);
+  return last4;
+};
+
 // Helper function to sanitize narrative inputs
 const sanitizeNarrative = (narrative: string): string => {
   // Remove potentially offensive content and limit length
@@ -182,6 +210,7 @@ const MintNFT: React.FC<MintNFTProps> = ({
   const [isOnOptimism, setIsOnOptimism] = useState<boolean>(false);
   const [networkError, setNetworkError] = useState<string>("");
   const [sanitizedPath, setSanitizedPath] = useState<string>("");
+  const [insufficientFunds, setInsufficientFunds] = useState<boolean>(false);
   const [estimatedGas, setEstimatedGas] = useState<BigNumber | null>(null);
 
   // Initialize contract with proper ThirdWeb setup
@@ -221,6 +250,9 @@ const MintNFT: React.FC<MintNFTProps> = ({
   >("idle");
   const [withdrawTxHash, setWithdrawTxHash] =
     useState<string>("");
+
+  // Remove the gas estimation useEffect since we'll use a conservative estimate
+  const CONSERVATIVE_GAS_ESTIMATE = BigNumber.from(200000); // Conservative gas estimate for minting
 
   // Check if connected wallet is the contract owner
   useEffect(() => {
@@ -392,6 +424,22 @@ const MintNFT: React.FC<MintNFTProps> = ({
           <p>
             Your wallet is not properly connected. Please
             reconnect your wallet.
+          </p>
+        </div>
+      );
+    }
+
+    if (insufficientFunds) {
+      return (
+        <div className="insufficient-funds-prompt">
+          <p>
+            You don't have enough ETH to complete this transaction.
+          </p>
+          <p className="balance-info">
+            Required: {formatMintFee(mintFee?.toString() || "0")} ETH (mint fee) + gas
+          </p>
+          <p className="balance-info">
+            Your balance: {balance ? formatMintFee(balance.value) : "0"} ETH
           </p>
         </div>
       );
