@@ -1,12 +1,3 @@
-/**
- * MintNFT.tsx
- *
- * A React component for minting an NFT on the Optimism network using a Thirdweb contract.
- * This version dynamically builds the NFT metadata as a Base64‑encoded JSON string.
- * The metadata JSON includes an "image" field that is set to a plain HTTPS URL (the media URI),
- * while the entire JSON is Base64‑encoded and returned as the token URI.
- */
-
 import React, { useState, useEffect, useCallback, FC } from "react";
 import {
   useAddress,
@@ -18,122 +9,194 @@ import {
 import { ethers, BigNumber } from "ethers";
 import contractAbi from "../contractAbi.json";
 
-// Configuration Constants
-const NFT_CONTRACT_ADDRESS: string = "0x914B1339944D48236738424e2dbdbb72a212B2F5";
-const OPTIMISM_CHAIN_ID: number = 10;
+// Adjust the path if your mojo token awarding logic is elsewhere
+import { awardMojoTokensService } from "../services/mojotokenservice";
 
-// Allowed narrative paths and their associated media URLs.
-const allowedPaths: string[] = ["A", "B", "C"];
+/**
+ * Configuration
+ */
+const NFT_CONTRACT_ADDRESS = "0x914B1339944D48236738424e2dbdbb72A212B2F5";
+const OPTIMISM_CHAIN_ID = 10;
+
+// Plain HTTPS images for each path
 const IMAGE_URLS: Record<string, string> = {
   A: "https://bafybeiakvemnjhgbgknb4luge7kayoyslnkmgqcw7xwaoqmr5l6ujnalum.ipfs.dweb.link?filename=dktjnft1.gif",
   B: "https://bafybeiapjhb52gxhsnufm2mcrufk7d35id3lnexwftxksbcmbx5hsuzore.ipfs.dweb.link?filename=dktjnft2.gif",
   C: "https://bafybeifoew7nyl5p5xxroo3y4lhb2fg2a6gifmd7mdav7uibi4igegehjm.ipfs.dweb.link?filename=dktjnft3.gif",
 };
 
-/**
- * Creates a Base64‑encoded JSON metadata string for the NFT.
- *
- * @param path - The narrative path selected ("A", "B", or "C").
- * @param narrative - A narrative description (for example, the sanitized narrative text).
- * @param mojoScore - The calculated mojo score.
- * @returns A token URI in the format "data:application/json;base64,<encoded JSON>".
- *
- * Note: The "image" field in the JSON is assigned a plain HTTPS media URL from IMAGE_URLS.
- * Only the entire JSON is Base64‑encoded; the media URL remains a regular URL.
- */
-const createNFTMetadata = (
-  path: string,
-  narrative: string,
-  mojoScore: number
-): string => {
-  // Use the plain HTTPS URL from IMAGE_URLS as the media URI.
-  const image: string = IMAGE_URLS[path];
-  const metadata = {
-    name: `Don't Kill The Jam NFT - Path ${path}`,
-    description: `Narrative: ${narrative}. Mojo Score: ${mojoScore}`,
-    image, // This is the media URL as an HTTPS string.
-    attributes: [
-      { trait_type: "Mojo Score", value: mojoScore },
-      { trait_type: "Narrative Path", value: path },
-    ],
-  };
-  return `data:application/json;base64,${btoa(JSON.stringify(metadata))}`;
-};
+// Allowed narrative paths
+const allowedPaths = ["A", "B", "C"] as const;
 
 /**
- * Props for MintNFT component.
+ * Calculate mojo score. 
+ * Same logic as your older snippet
  */
-interface MintNFTProps {
-  /** The narrative path chosen by the user ("A", "B", or "C"). */
-  narrativePath: string;
+function calculateMojoScore(path: string): number {
+  switch (path) {
+    case "A":
+      return 8000;
+    case "B":
+      return 7500;
+    case "C":
+      return 8500;
+    default:
+      throw new Error("Invalid narrative path");
+  }
 }
 
 /**
- * MintNFT Component.
- *
- * Renders a UI for minting an NFT on Optimism. The component uses the narrative path
- * to dynamically build the token URI, which is a Base64‑encoded JSON containing the metadata.
- * The media URL in the metadata is provided as a plain HTTPS URL.
+ * Format mint fee to rough USD or fallback
+ */
+function formatMintFee(fee: any): string {
+  try {
+    if (!fee || ethers.BigNumber.from(fee).eq(0)) {
+      return "$1.55";
+    }
+    const ethValue = Number(ethers.BigNumber.from(fee).toString()) / 1e18;
+    return `$${(ethValue * 2000).toFixed(2)}`;
+  } catch {
+    return "$1.55";
+  }
+}
+
+/**
+ * Sanitize user narrative. 
+ * From your older snippet
+ */
+function sanitizeNarrative(narrative: string): string {
+  if (!narrative) return "";
+  const nsfwWords = ["fuck", "shit", "asshole", "bitch", "damn"];
+  let cleaned = narrative;
+  nsfwWords.forEach((word) => {
+    const regex = new RegExp(`\\b${word}\\b`, "gi");
+    cleaned = cleaned.replace(regex, "*".repeat(word.length));
+  });
+  return cleaned.trim().slice(0, 500);
+}
+
+/**
+ * Generate a unique NFT name
+ */
+function generateUniqueName(address: string): string {
+  if (!address) return "Anonymous";
+  const shortAddress = address.slice(-6);
+  const nameOptions = [
+    `Wanderer ${shortAddress}`,
+    `Explorer ${shortAddress}`,
+    `Voyager ${shortAddress}`,
+    `Seeker ${shortAddress}`,
+    `Traveler ${shortAddress}`,
+  ];
+  const sumOfChars = address
+    .split("")
+    .reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  const nameIndex = Math.abs(sumOfChars) % nameOptions.length;
+  return `Don't Kill the Jam : Reward it with Mojo ${nameOptions[nameIndex]}`;
+}
+
+/**
+ * Build the final base64-encoded metadata
+ */
+function createMetadata(
+  address: string,
+  narrativePath: string,
+  sanitizedNarrative: string,
+  mojoScore: number
+): string {
+  if (!allowedPaths.includes(narrativePath)) {
+    throw new Error("Invalid narrative path");
+  }
+  const imageUrl = IMAGE_URLS[narrativePath];
+  if (!imageUrl) {
+    throw new Error("Missing image for narrative path");
+  }
+  const metadata = {
+    name: generateUniqueName(address),
+    description: `NFT minted on Optimism. User narrative: ${sanitizedNarrative}`,
+    image: imageUrl,
+    attributes: [
+      { trait_type: "Mojo Score", value: mojoScore },
+      { trait_type: "Narrative Path", value: narrativePath },
+    ],
+  };
+  return `data:application/json;base64,${btoa(JSON.stringify(metadata))}`;
+}
+
+/**
+ * Props for MintNFT
+ */
+interface MintNFTProps {
+  narrativePath: string; // A, B, or C
+}
+
+/**
+ * Main MintNFT Component
  */
 const MintNFT: FC<MintNFTProps> = ({ narrativePath }) => {
-  const address: string | undefined = useAddress();
+  const address = useAddress();
   const [, switchNetwork] = useNetwork();
 
-  // Local state variables.
-  const [isOnOptimism, setIsOnOptimism] = useState<boolean>(false);
-  const [networkError, setNetworkError] = useState<string>("");
-  const [sanitizedPath, setSanitizedPath] = useState<string>("");
+  // Local state
+  const [isOnOptimism, setIsOnOptimism] = useState(false);
+  const [networkError, setNetworkError] = useState("");
+  const [sanitizedPath, setSanitizedPath] = useState("");
   const [mintStatus, setMintStatus] = useState<"idle" | "pending" | "success" | "error">("idle");
-  const [errorMessage, setErrorMessage] = useState<string>("");
-  const [mojoScore, setMojoScore] = useState<number>(0);
-  const [txHash, setTxHash] = useState<string>("");
-  const [isMinting, setIsMinting] = useState<boolean>(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [mojoScore, setMojoScore] = useState(0);
+  const [txHash, setTxHash] = useState("");
+  const [isMinting, setIsMinting] = useState(false);
 
-  // Load the contract using the existing logic.
+  // For preventing duplicates
+  const [lastNonce, setLastNonce] = useState<number | null>(null);
+
+  // Contract read & write
   const { contract } = useContract(NFT_CONTRACT_ADDRESS, contractAbi);
-  console.log("MintNFT: contract instance", contract);
-
-  // Use the original overload for "mintTo".
   const { mutateAsync: mintTo } = useContractWrite(contract, "mintTo");
-  const { data: mintFee, isLoading: isMintFeeLoading } = useContractRead(contract, "mintFee");
+  const { data: mintFee, isLoading: isMintFeeLoading } = useContractRead(
+    contract,
+    "mintFee"
+  );
 
-  // Setup narrative and calculate mojo score.
+  // On mount or if narrativePath changes
   useEffect(() => {
     if (!narrativePath || !allowedPaths.includes(narrativePath)) {
       setErrorMessage("Invalid narrative path");
       setMintStatus("error");
       return;
     }
-    setSanitizedPath(narrativePath);
+    const sanitized = sanitizeNarrative(narrativePath);
+    setSanitizedPath(sanitized);
     setMojoScore(calculateMojoScore(narrativePath));
   }, [narrativePath]);
 
-  // Ensure the wallet is connected to Optimism.
+  // Check if wallet is on Optimism
   useEffect(() => {
-    const checkNetwork = async (): Promise<void> => {
-      if (!window.ethereum) {
+    const checkNetwork = async () => {
+      if (!(window as any).ethereum) {
         setNetworkError("No wallet detected");
         return;
       }
       try {
-        const chainIdHex: string = (await window.ethereum.request({
+        const chainIdHex = await (window as any).ethereum.request({
           method: "eth_chainId",
-        })) as string;
-        const chainId: number = parseInt(chainIdHex, 16);
+        });
+        const chainId = parseInt(chainIdHex as string, 16);
         setIsOnOptimism(chainId === OPTIMISM_CHAIN_ID);
-        setNetworkError(chainId !== OPTIMISM_CHAIN_ID ? "Switch to Optimism" : "");
+        if (chainId !== OPTIMISM_CHAIN_ID) {
+          setNetworkError("Switch to Optimism");
+        }
       } catch {
         setIsOnOptimism(false);
         setNetworkError("Can't verify network");
       }
     };
-    if (address) checkNetwork();
+    if (address) {
+      checkNetwork();
+    }
   }, [address]);
 
-  /**
-   * Handles network switching.
-   */
-  const handleSwitchNetwork = async (): Promise<void> => {
+  const handleSwitchNetwork = async () => {
     if (!switchNetwork) {
       setNetworkError("Switch to Optimism in your wallet");
       return;
@@ -147,10 +210,8 @@ const MintNFT: FC<MintNFTProps> = ({ narrativePath }) => {
     }
   };
 
-  /**
-   * Initiates the minting process.
-   */
-  const handleMint = useCallback(async (): Promise<void> => {
+  // Main mint function
+  const handleMint = useCallback(async () => {
     if (!address || !contract || !sanitizedPath || isMinting) {
       setErrorMessage(
         !address
@@ -164,81 +225,113 @@ const MintNFT: FC<MintNFTProps> = ({ narrativePath }) => {
       setMintStatus("error");
       return;
     }
+
     if (!allowedPaths.includes(narrativePath)) {
       setErrorMessage("Invalid narrative path");
       setMintStatus("error");
       return;
     }
 
-    setIsMinting(true);
     setMintStatus("pending");
+    setIsMinting(true);
     setErrorMessage("");
 
     try {
-      // Create the token URI dynamically using the narrative path, sanitized narrative, and mojo score.
-      // The token URI is a Base64‑encoded JSON string. The "image" field inside that JSON is a plain HTTPS URL.
-      const tokenURI: string = createNFTMetadata(narrativePath, sanitizedPath, mojoScore);
+      // Check nonce to avoid duplicates
+      const provider = new ethers.providers.Web3Provider((window as any).ethereum);
+      const signer = provider.getSigner();
+      const currentNonce = await signer.getTransactionCount("pending");
 
-      // Use the contract's mint fee if available, otherwise fallback to 0.000777 ETH in wei.
-      const fee: BigNumber =
-        mintFee && BigNumber.from(mintFee).gt(0)
-          ? BigNumber.from(mintFee)
-          : BigNumber.from("777000000000000");
+      if (lastNonce !== null && currentNonce === lastNonce) {
+        throw new Error("Transaction already in progress");
+      }
+      setLastNonce(currentNonce);
 
-      console.log("Minting NFT with parameters:", {
+      // Build base64 token URI
+      const tokenURI = createMetadata(address, narrativePath, sanitizedPath, mojoScore);
+
+      // fallback fee
+      let fee = BigNumber.from("777000000000000"); 
+      if (mintFee && BigNumber.from(mintFee).gt(0)) {
+        fee = BigNumber.from(mintFee);
+      }
+
+      console.log("Minting NFT with:", {
         address,
         tokenURI,
         mojoScore,
-        narrative: sanitizedPath,
+        path: sanitizedPath,
+        nonce: currentNonce,
         fee: fee.toString(),
       });
 
       const tx = await mintTo({
         args: [address, tokenURI, mojoScore, sanitizedPath],
-        overrides: { value: fee },
+        overrides: { value: fee, nonce: currentNonce },
       });
 
       if (!tx || !tx.receipt) {
         throw new Error("Mint transaction failed");
       }
+
       const receipt = tx.receipt;
       console.log("Mint receipt:", receipt);
 
-      // Validate that exactly one Transfer event is emitted.
-      const transferEvents = receipt.logs.filter(
-        (log: any) =>
-          log.topics && log.topics[0].includes("Transfer")
-      );
-      if (transferEvents.length !== 1) {
-        console.warn("Unexpected number of Transfer events:", transferEvents.length);
-        throw new Error("Multiple mint events detected");
+      // If logs > 1, might be duplicates
+      if (receipt.logs.length > 1) {
+        console.warn("Multiple NFTs minted:", receipt.logs);
+        throw new Error("Unexpected multiple mints detected");
       }
+
       setTxHash(receipt.transactionHash);
       setMintStatus("success");
-    } catch (error: unknown) {
-      console.error("Error minting NFT:", error);
-      let message: string = "Minting failed";
-      if (error instanceof Error) {
-        message = error.message;
+
+      // Award mojo tokens after success
+      try {
+        const rewardTx = await awardMojoTokensService({
+          address,
+          mojoScore,
+          narrativePath: sanitizedPath,
+        });
+        console.log("Mojo tokens awarded:", rewardTx);
+      } catch (rewardError: any) {
+        const rMsg = rewardError?.message || "Unknown error awarding tokens";
+        setErrorMessage(`Mint succeeded but rewards failed: ${rMsg}`);
       }
+    } catch (error: any) {
+      console.error("Mint error:", error);
+      const msg = error.message || "Minting failed";
       setErrorMessage(
-        message.includes("cancelled")
+        msg.includes("cancelled")
           ? "Transaction cancelled by user"
-          : message.includes("rejected")
+          : msg.includes("rejected")
           ? "Transaction rejected by wallet"
-          : message.includes("insufficient")
+          : msg.includes("insufficient")
           ? "Not enough ETH for mint"
-          : message.includes("revert")
+          : msg.includes("revert")
           ? "Contract rejected transaction"
-          : message.includes("Duplicate transaction")
-          ? "Transaction already in progress"
-          : message
+          : msg.includes("Invalid narrative")
+          ? "Invalid narrative path"
+          : msg.includes("multiple mints")
+          ? "Multiple mints detected, aborted"
+          : msg
       );
       setMintStatus("error");
     } finally {
+      // Reset nonce so user can mint again after finishing
+      setLastNonce(null);
       setIsMinting(false);
     }
-  }, [address, contract, sanitizedPath, isMinting, narrativePath, mojoScore, mintFee]);
+  }, [
+    address,
+    contract,
+    sanitizedPath,
+    isMinting,
+    narrativePath,
+    mojoScore,
+    mintFee,
+    lastNonce,
+  ]);
 
   return (
     <div className="mint-nft-container">
@@ -247,7 +340,7 @@ const MintNFT: FC<MintNFTProps> = ({ narrativePath }) => {
           {mintStatus === "pending" && <p>Minting your NFT...</p>}
           {mintStatus === "success" && (
             <div>
-              <p>NFT minted! 🎉</p>
+              <p>NFT minted successfully! 🎉</p>
               {txHash && (
                 <a
                   href={`https://optimistic.etherscan.io/tx/${txHash}`}
@@ -270,10 +363,10 @@ const MintNFT: FC<MintNFTProps> = ({ narrativePath }) => {
 
       {mintStatus === "idle" && (
         <>
-          {!address && <p>Connect your wallet to mint</p>}
+          {!address && <p>Connect your wallet to mint.</p>}
           {address && !isOnOptimism && (
             <div>
-              <p>Switch to Optimism to mint</p>
+              <p>You must be on Optimism to mint</p>
               <button onClick={handleSwitchNetwork}>Switch to Optimism</button>
               {networkError && <p>{networkError}</p>}
             </div>
@@ -284,7 +377,7 @@ const MintNFT: FC<MintNFTProps> = ({ narrativePath }) => {
       {mintStatus !== "success" && mojoScore > 0 && (
         <div>
           <p>Mojo Score: {mojoScore}</p>
-          <p>You'll get {mojoScore} Mojo tokens after minting!</p>
+          <p>You’ll receive {mojoScore} Mojo tokens after minting!</p>
         </div>
       )}
 
@@ -298,8 +391,8 @@ const MintNFT: FC<MintNFTProps> = ({ narrativePath }) => {
 
       {mintStatus !== "success" && (
         <p>
-          Mint your NFT on Optimism.{" "}
-          {isMintFeeLoading ? "Loading fee..." : `Fee: ${formatMintFee(mintFee)}`}
+          Mint Fee:{" "}
+          {isMintFeeLoading ? "Loading fee..." : formatMintFee(mintFee)}
         </p>
       )}
     </div>
