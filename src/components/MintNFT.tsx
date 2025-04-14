@@ -33,13 +33,7 @@ const calculateMojoScore = (path: string): number => {
     default:
       baseScore = 5000;
   }
-  const currentTime = Date.now();
-  const launchTime = new Date("2023-12-01").getTime();
-  const timeBonus = Math.max(
-    0,
-    Math.min(1500, Math.floor(((launchTime - currentTime) / (1000 * 60 * 60 * 24)) * 100)),
-  );
-  return Math.min(10000, baseScore + timeBonus);
+  return Math.min(10000, baseScore);
 };
 
 const formatMintFee = (fee: any): string => {
