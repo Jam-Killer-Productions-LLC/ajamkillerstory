@@ -119,7 +119,7 @@ const createMetadata = (
       { trait_type: "Narrative Path", value: narrativePath },
     ],
   };
-  return "data:application/json;base64," + btoa(JSON.stringify(metadata));
+  return `data:application/json;base64,${btoa(JSON.stringify(metadata))}`;
 };
 
 interface MintNFTProps {
@@ -245,16 +245,16 @@ const MintNFT: React.FC<MintNFTProps> = ({ narrativePath }) => {
 
       console.log("Minting with:", { tokenURI, mojoScore, narrative: sanitizedPath, fee: fee.toString() });
 
-      const mintTx = await mintTo({
+      const tx = await mintTo({
         args: [address, tokenURI, mojoScore, sanitizedPath],
         overrides: { value: fee },
       });
 
-      if (!mintTx || !mintTx.receipt) {
+      if (!tx || !tx.receipt) {
         throw new Error("Mint transaction failed");
       }
 
-      setTxHash(mintTx.receipt.transactionHash);
+      setTxHash(tx.receipt.transactionHash);
       setMintStatus("success");
 
       setTimeout(async () => {
