@@ -2,11 +2,9 @@ import React, { useState, useEffect } from "react";
 import {
   useAddress,
   useContract,
+  useContractWrite,
   useContractRead,
-  useSDK,
   useNetwork,
-  prepareContractCall,
-  sendTransaction,
 } from "@thirdweb-dev/react";
 import { ethers } from "ethers";
 import contractAbi from "../contractAbi.json";
@@ -47,11 +45,18 @@ const calculateMojoScore = (path: string): number => {
 };
 
 const formatMintFee = (fee: any): string => {
+  console.log("Raw mintFee:", fee);
   try {
-    if (!fee) return "0.000777";
-    return (Number(fee.toString()) / 1e18).toFixed(4);
-  } catch {
-    return "0.000777";
+    if (!fee || ethers.BigNumber.from(fee).eq(0)) {
+      console.log("Using fallback: 0.000777 ETH = $1.55");
+      return "$1.55"; // 0.000777 ETH * $2000/ETH
+    }
+    const ethValue = Number(ethers.BigNumber.from(fee).toString()) / 1e18;
+    const usdValue = ethValue * 2000; // Mock ETH price: $2000
+    return `$${usdValue.toFixed(2)}`;
+  } catch (error) {
+    console.error("formatMintFee error:", error);
+    return "$1.55";
   }
 };
 
@@ -131,9 +136,20 @@ const MintNFT: React.FC<MintNFTProps> = ({ narrativePath }) => {
   const [txHash, setTxHash] = useState("");
   const [tokenAwardStatus, setTokenAwardStatus] = useState<"pending" | "success" | "error" | "idle">("idle");
   const [tokenTxHash, setTokenTxHash] = useState("");
+  const [isWalletReady, setIsWalletReady] = useState(false);
 
-  const { contract } = useContract(NFT_CONTRACT_ADDRESS, contractAbi);
-  const { data: mintFee, isLoading: isMintFeeLoading } = useContractRead(contract, "mintFee");
+  const { contract, error: contractError } = useContract(NFT_CONTRACT_ADDRESS, contractAbi);
+  const { mutateAsync: mintTo, error: mintError } = useContractWrite(contract, "mintTo");
+  const { data: mintFee, isLoading: isMintFeeLoading, error: mintFeeError } = useContractRead(contract, "mintFee");
+
+  useEffect(() => {
+    if (address) {
+      setIsWalletReady(true);
+    } else {
+      setIsWalletReady(false);
+      setIsOnOptimism(false);
+    }
+  }, [address]);
 
   useEffect(() => {
     if (narrativePath) {
@@ -163,6 +179,19 @@ const MintNFT: React.FC<MintNFTProps> = ({ narrativePath }) => {
     };
     checkNetwork();
   }, [address]);
+
+  useEffect(() => {
+    if (contractError) {
+      console.error("Contract load error:", contractError);
+      setErrorMessage("Failed to load contract");
+    }
+    if (mintFeeError) {
+      console.error("Mint fee fetch error:", mintFeeError);
+    }
+    if (mintError) {
+      console.error("Mint error:", mintError);
+    }
+  }, [contractError, mintFeeError, mintError]);
 
   const handleSwitchNetwork = async () => {
     if (!switchNetwork) {
@@ -202,23 +231,23 @@ const MintNFT: React.FC<MintNFTProps> = ({ narrativePath }) => {
       const metadata = createMetadata(address, sanitizedPath.charAt(0), sanitizedPath, mojoScore);
       const fee = mintFee && ethers.BigNumber.from(mintFee).gt(0) ? mintFee : ethers.BigNumber.from("777000000000000");
 
-      const transaction = await prepareContractCall({
-        contract,
-        method: "function mintTo(address to, string _tokenURI, uint256 _mojoScore, string _narrative) payable",
-        params: [address, metadata, mojoScore, sanitizedPath],
-        value: fee,
-      });
-
       const timeoutPromise = new Promise((_, reject) =>
         setTimeout(() => reject(new Error("Transaction timed out")), 10000)
       );
 
-      const { transactionHash } = await Promise.race([
-        sendTransaction({ transaction, account: address }),
+      const mintTx = await Promise.race([
+        mintTo({
+          args: [address, metadata, mojoScore, sanitizedPath],
+          overrides: { value: fee },
+        }),
         timeoutPromise,
       ]);
 
-      setTxHash(transactionHash);
+      if (!mintTx || !mintTx.receipt) {
+        throw new Error("Mint transaction failed");
+      }
+
+      setTxHash(mintTx.receipt.transactionHash);
       setMintStatus("success");
 
       setTimeout(async () => {
@@ -285,7 +314,8 @@ const MintNFT: React.FC<MintNFTProps> = ({ narrativePath }) => {
       {mintStatus === "idle" && (
         <>
           {!address && <p>Connect your wallet to mint</p>}
-          {address && !isOnOptimism && (
+          {address && !isWalletReady && <p>Wallet not connected, try again</p>}
+          {address && isWalletReady && !isOnOptimism && (
             <div>
               <p>Switch to Optimism to mint</p>
               <button onClick={handleSwitchNetwork}>Switch to Optimism</button>
@@ -304,7 +334,7 @@ const MintNFT: React.FC<MintNFTProps> = ({ narrativePath }) => {
 
       <button
         onClick={handleMint}
-        disabled={!address || !isOnOptimism || !sanitizedPath || mintStatus !== "idle"}
+        disabled={!address || !isWalletReady || !isOnOptimism || !sanitizedPath || mintStatus !== "idle"}
         className={`mint-button ${mintStatus === "success" ? "success" : ""}`}
       >
         {mintStatus === "pending" ? "Minting..." : mintStatus === "success" ? "Minted!" : "Mint NFT"}
@@ -313,7 +343,7 @@ const MintNFT: React.FC<MintNFTProps> = ({ narrativePath }) => {
       {mintStatus !== "success" && (
         <p>
           Mint your NFT on Optimism.
-          {isMintFeeLoading ? " Loading fee..." : ` Fee: ${formatMintFee(mintFee)} ETH`}
+          {isMintFeeLoading ? " Loading fee..." : ` Fee: ${formatMintFee(mintFee)}`}
         </p>
       )}
     </div>
