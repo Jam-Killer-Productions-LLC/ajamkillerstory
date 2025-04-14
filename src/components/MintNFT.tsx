@@ -1,84 +1,103 @@
-// MintNFT.tsx
-import React, { useState, useEffect, useCallback } from "react";
+/**
+ * MintNFT.tsx
+ *
+ * A React component for minting an NFT on the Optimism network using a Thirdweb contract.
+ * This version dynamically builds the NFT metadata as a Base64‑encoded JSON string.
+ * The metadata JSON includes an "image" field that is set to a plain HTTPS URL (the media URI),
+ * while the entire JSON is Base64‑encoded and returned as the token URI.
+ */
+
+import React, { useState, useEffect, useCallback, FC } from "react";
 import {
   useAddress,
   useContract,
   useContractWrite,
   useContractRead,
-  useNetwork
+  useNetwork,
 } from "@thirdweb-dev/react";
-import { ethers } from "ethers";
+import { ethers, BigNumber } from "ethers";
 import contractAbi from "../contractAbi.json";
 
 // Configuration Constants
-const NFT_CONTRACT_ADDRESS = "0x914B1339944D48236738424e2dbdbb72a212B2F5";
-const OPTIMISM_CHAIN_ID = 10;
+const NFT_CONTRACT_ADDRESS: string = "0x914B1339944D48236738424e2dbdbb72a212B2F5";
+const OPTIMISM_CHAIN_ID: number = 10;
 
-// Allowed narrative paths and their associated image URLs
-const allowedPaths = ["A", "B", "C"];
-const IMAGE_URLS: { [key: string]: string } = {
+// Allowed narrative paths and their associated media URLs.
+const allowedPaths: string[] = ["A", "B", "C"];
+const IMAGE_URLS: Record<string, string> = {
   A: "https://bafybeiakvemnjhgbgknb4luge7kayoyslnkmgqcw7xwaoqmr5l6ujnalum.ipfs.dweb.link?filename=dktjnft1.gif",
   B: "https://bafybeiapjhb52gxhsnufm2mcrufk7d35id3lnexwftxksbcmbx5hsuzore.ipfs.dweb.link?filename=dktjnft2.gif",
   C: "https://bafybeifoew7nyl5p5xxroo3y4lhb2fg2a6gifmd7mdav7uibi4igegehjm.ipfs.dweb.link?filename=dktjnft3.gif",
 };
 
-// Helper function to calculate a mojo score based on narrative path
-const calculateMojoScore = (path: string): number => {
-  switch (path) {
-    case "A": return 8000;
-    case "B": return 7500;
-    case "C": return 8500;
-    default: throw new Error("Invalid narrative path");
-  }
+/**
+ * Creates a Base64‑encoded JSON metadata string for the NFT.
+ *
+ * @param path - The narrative path selected ("A", "B", or "C").
+ * @param narrative - A narrative description (for example, the sanitized narrative text).
+ * @param mojoScore - The calculated mojo score.
+ * @returns A token URI in the format "data:application/json;base64,<encoded JSON>".
+ *
+ * Note: The "image" field in the JSON is assigned a plain HTTPS media URL from IMAGE_URLS.
+ * Only the entire JSON is Base64‑encoded; the media URL remains a regular URL.
+ */
+const createNFTMetadata = (
+  path: string,
+  narrative: string,
+  mojoScore: number
+): string => {
+  // Use the plain HTTPS URL from IMAGE_URLS as the media URI.
+  const image: string = IMAGE_URLS[path];
+  const metadata = {
+    name: `Don't Kill The Jam NFT - Path ${path}`,
+    description: `Narrative: ${narrative}. Mojo Score: ${mojoScore}`,
+    image, // This is the media URL as an HTTPS string.
+    attributes: [
+      { trait_type: "Mojo Score", value: mojoScore },
+      { trait_type: "Narrative Path", value: path },
+    ],
+  };
+  return `data:application/json;base64,${btoa(JSON.stringify(metadata))}`;
 };
 
-// Helper function to format the mint fee for display
-const formatMintFee = (fee: any): string => {
-  try {
-    if (!fee || ethers.BigNumber.from(fee).eq(0)) return "$1.55";
-    const ethValue = Number(ethers.BigNumber.from(fee).toString()) / 1e18;
-    return `$${(ethValue * 2000).toFixed(2)}`;
-  } catch {
-    return "$1.55";
-  }
-};
-
-// Props for this component:
-// - metadataUri: the final, verified NFT metadata URI (IPFS or base64)
-// - narrativePath: the chosen narrative path that must be one of allowedPaths
+/**
+ * Props for MintNFT component.
+ */
 interface MintNFTProps {
-  metadataUri: string;
+  /** The narrative path chosen by the user ("A", "B", or "C"). */
   narrativePath: string;
 }
 
-const MintNFT: React.FC<MintNFTProps> = ({ narrativePath, metadataUri }) => {
-  const address = useAddress();
+/**
+ * MintNFT Component.
+ *
+ * Renders a UI for minting an NFT on Optimism. The component uses the narrative path
+ * to dynamically build the token URI, which is a Base64‑encoded JSON containing the metadata.
+ * The media URL in the metadata is provided as a plain HTTPS URL.
+ */
+const MintNFT: FC<MintNFTProps> = ({ narrativePath }) => {
+  const address: string | undefined = useAddress();
   const [, switchNetwork] = useNetwork();
 
-  // Local state variables for UI and transaction status
-  const [isOnOptimism, setIsOnOptimism] = useState(false);
-  const [networkError, setNetworkError] = useState("");
-  const [sanitizedPath, setSanitizedPath] = useState("");
+  // Local state variables.
+  const [isOnOptimism, setIsOnOptimism] = useState<boolean>(false);
+  const [networkError, setNetworkError] = useState<string>("");
+  const [sanitizedPath, setSanitizedPath] = useState<string>("");
   const [mintStatus, setMintStatus] = useState<"idle" | "pending" | "success" | "error">("idle");
-  const [errorMessage, setErrorMessage] = useState("");
-  const [mojoScore, setMojoScore] = useState(0);
-  const [txHash, setTxHash] = useState("");
-  const [isMinting, setIsMinting] = useState(false);
-  const [lastNonce, setLastNonce] = useState<number | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string>("");
+  const [mojoScore, setMojoScore] = useState<number>(0);
+  const [txHash, setTxHash] = useState<string>("");
+  const [isMinting, setIsMinting] = useState<boolean>(false);
 
-  // Load contract using your existing logic (this should load correctly)
+  // Load the contract using the existing logic.
   const { contract } = useContract(NFT_CONTRACT_ADDRESS, contractAbi);
+  console.log("MintNFT: contract instance", contract);
 
-  // Use contract write with an explicit signature to select the payable mintTo version
-  const { mutateAsync: mintTo } = useContractWrite(
-    contract,
-    "mintTo(address,string,uint256,string)" // Explicit payable overload signature
-  );
-
-  // Read the current mint fee from the contract (for display and overrides)
+  // Use the original overload for "mintTo".
+  const { mutateAsync: mintTo } = useContractWrite(contract, "mintTo");
   const { data: mintFee, isLoading: isMintFeeLoading } = useContractRead(contract, "mintFee");
 
-  // Setup sanitized narrative and calculate mojo score (assumes narrativePath is valid)
+  // Setup narrative and calculate mojo score.
   useEffect(() => {
     if (!narrativePath || !allowedPaths.includes(narrativePath)) {
       setErrorMessage("Invalid narrative path");
@@ -89,22 +108,20 @@ const MintNFT: React.FC<MintNFTProps> = ({ narrativePath, metadataUri }) => {
     setMojoScore(calculateMojoScore(narrativePath));
   }, [narrativePath]);
 
-  // Check that the wallet is connected to the Optimism network
+  // Ensure the wallet is connected to Optimism.
   useEffect(() => {
-    const checkNetwork = async () => {
+    const checkNetwork = async (): Promise<void> => {
       if (!window.ethereum) {
         setNetworkError("No wallet detected");
         return;
       }
       try {
-        const chainIdHex: string = await window.ethereum.request({ method: "eth_chainId" });
-        const chainId = parseInt(chainIdHex, 16);
+        const chainIdHex: string = (await window.ethereum.request({
+          method: "eth_chainId",
+        })) as string;
+        const chainId: number = parseInt(chainIdHex, 16);
         setIsOnOptimism(chainId === OPTIMISM_CHAIN_ID);
-        if (chainId !== OPTIMISM_CHAIN_ID) {
-          setNetworkError("Switch to Optimism");
-        } else {
-          setNetworkError("");
-        }
+        setNetworkError(chainId !== OPTIMISM_CHAIN_ID ? "Switch to Optimism" : "");
       } catch {
         setIsOnOptimism(false);
         setNetworkError("Can't verify network");
@@ -113,8 +130,10 @@ const MintNFT: React.FC<MintNFTProps> = ({ narrativePath, metadataUri }) => {
     if (address) checkNetwork();
   }, [address]);
 
-  // Handler to prompt a network switch if necessary
-  const handleSwitchNetwork = async () => {
+  /**
+   * Handles network switching.
+   */
+  const handleSwitchNetwork = async (): Promise<void> => {
     if (!switchNetwork) {
       setNetworkError("Switch to Optimism in your wallet");
       return;
@@ -128,18 +147,19 @@ const MintNFT: React.FC<MintNFTProps> = ({ narrativePath, metadataUri }) => {
     }
   };
 
-  // Main mint function following best practices for error handling and debugging
-  const handleMint = useCallback(async () => {
-    // Validate prerequisites before proceeding
+  /**
+   * Initiates the minting process.
+   */
+  const handleMint = useCallback(async (): Promise<void> => {
     if (!address || !contract || !sanitizedPath || isMinting) {
       setErrorMessage(
         !address
           ? "Connect your wallet"
           : !contract
-            ? "Contract not loaded"
-            : !sanitizedPath
-              ? "Narrative cannot be empty"
-              : "Mint already in progress"
+          ? "Contract not loaded"
+          : !sanitizedPath
+          ? "Narrative cannot be empty"
+          : "Mint already in progress"
       );
       setMintStatus("error");
       return;
@@ -155,25 +175,15 @@ const MintNFT: React.FC<MintNFTProps> = ({ narrativePath, metadataUri }) => {
     setErrorMessage("");
 
     try {
-      // Use the provided verified metadataUri (assumed to be correct and minted)
-      const tokenURI = metadataUri;
-      if (!tokenURI.startsWith("ipfs://") && !tokenURI.startsWith("data:application/json;base64,")) {
-        throw new Error("Invalid metadata format");
-      }
+      // Create the token URI dynamically using the narrative path, sanitized narrative, and mojo score.
+      // The token URI is a Base64‑encoded JSON string. The "image" field inside that JSON is a plain HTTPS URL.
+      const tokenURI: string = createNFTMetadata(narrativePath, sanitizedPath, mojoScore);
 
-      // Use the mint fee from the contract if available, else fallback to a hard-coded value
-      const fee = (mintFee && ethers.BigNumber.from(mintFee).gt(0))
-        ? mintFee
-        : ethers.BigNumber.from("777000000000000");
-
-      // Use the provider to obtain the current nonce, to help guard against duplicate submissions
-      const provider = new ethers.providers.Web3Provider(window.ethereum);
-      const signer = provider.getSigner();
-      const currentNonce = await signer.getTransactionCount("pending");
-      if (lastNonce !== null && currentNonce === lastNonce) {
-        throw new Error("Duplicate transaction detected");
-      }
-      setLastNonce(currentNonce);
+      // Use the contract's mint fee if available, otherwise fallback to 0.000777 ETH in wei.
+      const fee: BigNumber =
+        mintFee && BigNumber.from(mintFee).gt(0)
+          ? BigNumber.from(mintFee)
+          : BigNumber.from("777000000000000");
 
       console.log("Minting NFT with parameters:", {
         address,
@@ -181,13 +191,11 @@ const MintNFT: React.FC<MintNFTProps> = ({ narrativePath, metadataUri }) => {
         mojoScore,
         narrative: sanitizedPath,
         fee: fee.toString(),
-        nonce: currentNonce
       });
 
-      // Call the payable mintTo function explicitly with four parameters
       const tx = await mintTo({
         args: [address, tokenURI, mojoScore, sanitizedPath],
-        overrides: { value: fee, nonce: currentNonce },
+        overrides: { value: fee },
       });
 
       if (!tx || !tx.receipt) {
@@ -196,39 +204,41 @@ const MintNFT: React.FC<MintNFTProps> = ({ narrativePath, metadataUri }) => {
       const receipt = tx.receipt;
       console.log("Mint receipt:", receipt);
 
-      // Optionally verify that only one Transfer event occurred
-      const transferEvents = receipt.logs.filter((log: any) =>
-        log.topics && log.topics[0].includes("Transfer")
+      // Validate that exactly one Transfer event is emitted.
+      const transferEvents = receipt.logs.filter(
+        (log: any) =>
+          log.topics && log.topics[0].includes("Transfer")
       );
       if (transferEvents.length !== 1) {
         console.warn("Unexpected number of Transfer events:", transferEvents.length);
         throw new Error("Multiple mint events detected");
       }
-
       setTxHash(receipt.transactionHash);
       setMintStatus("success");
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error minting NFT:", error);
-      const message = error instanceof Error ? error.message : "Minting failed";
+      let message: string = "Minting failed";
+      if (error instanceof Error) {
+        message = error.message;
+      }
       setErrorMessage(
         message.includes("cancelled")
           ? "Transaction cancelled by user"
           : message.includes("rejected")
-            ? "Transaction rejected by wallet"
-            : message.includes("insufficient")
-              ? "Not enough ETH for mint"
-              : message.includes("revert")
-                ? "Contract rejected transaction"
-                : message.includes("Duplicate transaction")
-                  ? "Transaction already in progress"
-                  : message
+          ? "Transaction rejected by wallet"
+          : message.includes("insufficient")
+          ? "Not enough ETH for mint"
+          : message.includes("revert")
+          ? "Contract rejected transaction"
+          : message.includes("Duplicate transaction")
+          ? "Transaction already in progress"
+          : message
       );
       setMintStatus("error");
     } finally {
       setIsMinting(false);
-      setLastNonce(null);
     }
-  }, [address, contract, sanitizedPath, isMinting, narrativePath, metadataUri, mintFee, mojoScore, lastNonce]);
+  }, [address, contract, sanitizedPath, isMinting, narrativePath, mojoScore, mintFee]);
 
   return (
     <div className="mint-nft-container">
@@ -288,7 +298,8 @@ const MintNFT: React.FC<MintNFTProps> = ({ narrativePath, metadataUri }) => {
 
       {mintStatus !== "success" && (
         <p>
-          Mint your NFT on Optimism. {isMintFeeLoading ? "Loading fee..." : `Fee: ${formatMintFee(mintFee)}`}
+          Mint your NFT on Optimism.{" "}
+          {isMintFeeLoading ? "Loading fee..." : `Fee: ${formatMintFee(mintFee)}`}
         </p>
       )}
     </div>
