@@ -4,23 +4,15 @@ import {
   useContract,
   useContractWrite,
   useContractRead,
-  useSDK,
   useNetwork,
   useNetworkMismatch,
-  useBalance,
 } from "@thirdweb-dev/react";
 import contractAbi from "../contractAbi.json";
-import { BigNumber } from "ethers";
 
-const NFT_CONTRACT_ADDRESS =
-  "0x914b1339944d48236738424e2dbdbb72a212b2f5";
-const MOJO_TOKEN_CONTRACT_ADDRESS =
-  "0xf9e7D3cd71Ee60C7A3A64Fa7Fcb81e610Ce1daA5";
-const CONTRACT_OWNER_ADDRESS =
-  "0x2af17552f27021666BcD3E5Ba65f68Cb5Ec217fc";
+const NFT_CONTRACT_ADDRESS = "0x914b1339944d48236738424e2dbdbb72a212b2f5";
+const CONTRACT_OWNER_ADDRESS = "0x2af17552f27021666BcD3E5Ba65f68Cb5Ec217fc";
 const OPTIMISM_CHAIN_ID = 10;
 
-// Image URL choices based on narrative path
 const IMAGE_URLS: { [key: string]: string } = {
   A: "https://bafybeiakvemnjhgbgknb4luge7kayoyslnkmgqcw7xwaoqmr5l6ujnalum.ipfs.dweb.link?filename=dktjnft1.gif",
   B: "https://bafybeiapjhb52gxhsnufm2mcrufk7d35id3lnexwftxksbcmbx5hsuzore.ipfs.dweb.link?filename=dktjnft2.gif",
@@ -29,9 +21,7 @@ const IMAGE_URLS: { [key: string]: string } = {
 
 const allowedPaths = ["A", "B", "C"];
 
-// Calculate Mojo Score based on the narrative path and other engagement factors
 const calculateMojoScore = (path: string): number => {
-  // Base score for each path
   let baseScore = 0;
   switch (path) {
     case "A":
@@ -47,80 +37,60 @@ const calculateMojoScore = (path: string): number => {
       baseScore = 5000;
   }
 
-  // Add a bonus for early adoption (this is just an example, you could use other factors)
   const currentTime = Date.now();
-  const launchTime = new Date("2023-12-01").getTime(); // Example launch date
+  const launchTime = new Date("2023-12-01").getTime();
   const timeBonus = Math.max(
     0,
     Math.min(
       1500,
-      Math.floor(
-        ((launchTime - currentTime) /
-          (1000 * 60 * 60 * 24)) *
-          100,
-      ),
+      Math.floor(((launchTime - currentTime) / (1000 * 60 * 60 * 24)) * 100),
     ),
   );
 
-  // Calculate final score, capped at 10,000
   return Math.min(10000, baseScore + timeBonus);
 };
 
-// Helper function to format mint fee
 const formatMintFee = (fee: any): string => {
   if (!fee) return "0";
   try {
     return (Number(fee.toString()) / 1e18).toFixed(4);
   } catch (error) {
-    console.error("Error formatting mint fee:", error);
     return "0";
   }
 };
 
-// Service function to award Mojo tokens
 const awardMojoTokensService = async (data: {
   address: string;
   mojoScore: number;
   narrativePath: string;
 }): Promise<{ txHash: string }> => {
-  try {
-    const response = await fetch('https://mojotokenrewards.producerprotocol.pro/mint', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(data),
-    });
+  const response = await fetch('https://mojotokenrewards.producerprotocol.pro/mint', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(data),
+  });
 
-    if (!response.ok) {
-      throw new Error(`API request failed with status ${response.status}`);
-    }
-
-    const responseData = await response.json();
-    return responseData;
-  } catch (error) {
-    console.error("Error awarding tokens:", error);
-    throw error;
+  if (!response.ok) {
+    throw new Error(`API request failed with status ${response.status}`);
   }
+
+  return await response.json();
 };
 
-// Generate a unique name based on user's wallet address
 const generateUniqueName = (address: string): string => {
   if (!address) return "Anonymous";
   
-  // Take the last 6 characters of the address
   const shortAddress = address.slice(-6);
-  
-  // Create some name variations based on the address
   const nameOptions = [
     `Wanderer ${shortAddress}`,
     `Explorer ${shortAddress}`,
     `Voyager ${shortAddress}`,
     `Seeker ${shortAddress}`,
-    `Traveler ${shortAddress}`
+    `Traveler ${shortAddress}`,
   ];
   
-  // Pick a name based on a hash of the address
   const nameIndex = Math.abs(
     address.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
   ) % nameOptions.length;
@@ -128,17 +98,13 @@ const generateUniqueName = (address: string): string => {
   return nameOptions[nameIndex];
 };
 
-// Helper function to sanitize narrative inputs
 const sanitizeNarrative = (narrative: string): string => {
-  // Remove potentially offensive content and limit length
-  const sanitized = narrative
-    .replace(/[^\w\s.,!?-]/gi, "") // Remove special characters
+  return narrative
+    .replace(/[^\w\s.,!?-]/gi, "")
     .trim()
-    .slice(0, 500); // Limit length
-  return sanitized;
+    .slice(0, 500);
 };
 
-// Helper function to create metadata with the selected image URL
 const createMetadata = (
   address: string,
   narrativePath: string,
@@ -154,8 +120,7 @@ const createMetadata = (
     ],
   };
 
-  // Create a data URI with the metadata JSON (base64-encoded)
-  return "data:application/json;base64," + btoa(JSON.stringify(metadata));
+  return JSON.stringify(metadata);
 };
 
 interface MintNFTProps {
@@ -164,115 +129,75 @@ interface MintNFTProps {
 
 const MintNFT: React.FC<MintNFTProps> = ({ narrativePath }) => {
   const address = useAddress();
-  const sdk = useSDK();
   const [, switchNetwork] = useNetwork();
   const isMismatched = useNetworkMismatch();
-  const { data: balance } = useBalance();
   const [networkError, setNetworkError] = useState<string>("");
   const [sanitizedPath, setSanitizedPath] = useState<string>("");
-  const [insufficientFunds, setInsufficientFunds] = useState<boolean>(false);
-
-  // Initialize contract with proper ThirdWeb setup
-  const { contract, isLoading: isContractLoading } = useContract(NFT_CONTRACT_ADDRESS, contractAbi);
-  const { mutateAsync: callContract, isLoading: isContractWritePending } = useContractWrite(contract);
-  
-  const { data: mintFee, isLoading: isMintFeeLoading } =
-    useContractRead(contract, "MINT_FEE");
-
-  // Setup Mojo token contract for awarding tokens
-  const { contract: mojoContract } = useContract(
-    MOJO_TOKEN_CONTRACT_ADDRESS,
-  );
-
-  const [mintStatus, setMintStatus] = useState<
-    "idle" | "pending" | "success" | "error"
-  >("idle");
+  const [mintStatus, setMintStatus] = useState<"idle" | "pending" | "success" | "error">("idle");
   const [txHash, setTxHash] = useState<string>("");
-  const [errorMessage, setErrorMessage] =
-    useState<string>("");
+  const [errorMessage, setErrorMessage] = useState<string>("");
   const [mojoScore, setMojoScore] = useState<number>(0);
-  const [tokenAwardStatus, setTokenAwardStatus] = useState<
-    "pending" | "success" | "error" | "idle"
-  >("idle");
-  const [tokenTxHash, setTokenTxHash] =
-    useState<string>("");
+  const [tokenAwardStatus, setTokenAwardStatus] = useState<"pending" | "success" | "error" | "idle">("idle");
+  const [tokenTxHash, setTokenTxHash] = useState<string>("");
   const [isOwner, setIsOwner] = useState<boolean>(false);
-  const [withdrawStatus, setWithdrawStatus] = useState<
-    "idle" | "pending" | "success" | "error"
-  >("idle");
-  const [withdrawTxHash, setWithdrawTxHash] =
-    useState<string>("");
+  const [withdrawStatus, setWithdrawStatus] = useState<"idle" | "pending" | "success" | "error">("idle");
+  const [withdrawTxHash, setWithdrawTxHash] = useState<string>("");
 
-  // Check if connected wallet is the contract owner
+  const { contract, isLoading: isContractLoading } = useContract(NFT_CONTRACT_ADDRESS, contractAbi);
+  const { mutateAsync: callContract } = useContractWrite(contract);
+  const { data: mintFee } = useContractRead(contract, "MINT_FEE");
+
   useEffect(() => {
-    if (address) {
-      setIsOwner(
-        address.toLowerCase() ===
-          CONTRACT_OWNER_ADDRESS.toLowerCase(),
-      );
-    } else {
-      setIsOwner(false);
-    }
+    setIsOwner(address?.toLowerCase() === CONTRACT_OWNER_ADDRESS.toLowerCase());
   }, [address]);
 
-  // Calculate Mojo score when narrative path changes
   useEffect(() => {
     if (narrativePath) {
       setMojoScore(calculateMojoScore(narrativePath));
     }
   }, [narrativePath]);
 
-  // Sanitize narrative path when component mounts or path changes
   useEffect(() => {
     if (narrativePath) {
-      const sanitized = sanitizeNarrative(narrativePath);
-      setSanitizedPath(sanitized);
+      setSanitizedPath(sanitizeNarrative(narrativePath));
     }
   }, [narrativePath]);
 
-  // Handle network switching
-  const handleSwitchNetwork = async () => {
-    setNetworkError("");
-    try {
-      if (!switchNetwork) {
-        throw new Error("Network switching not available in your wallet");
-      }
-      
-      await switchNetwork(OPTIMISM_CHAIN_ID);
-    } catch (error) {
-      console.error("Network switch error:", error);
-      setNetworkError(
-        error instanceof Error 
-          ? error.message 
-          : "Failed to switch networks. Please switch manually in your wallet."
-      );
-    }
-  };
-
-  // Auto switch network if mismatched
   useEffect(() => {
     if (isMismatched && address) {
       handleSwitchNetwork();
     }
   }, [isMismatched, address]);
 
-  // Function to render the mint status
+  const handleSwitchNetwork = async () => {
+    setNetworkError("");
+    try {
+      if (!switchNetwork) {
+        throw new Error("Network switching not available in your wallet");
+      }
+      await switchNetwork(OPTIMISM_CHAIN_ID);
+    } catch (error) {
+      setNetworkError(error instanceof Error ? error.message : "Failed to switch networks. Please switch manually in your wallet.");
+    }
+  };
+
+  const renderError = (message: string) => (
+    <div className="error-details">
+      <p>{message}</p>
+    </div>
+  );
+
   const renderMintStatus = () => {
     if (mintStatus === "idle") return null;
 
     return (
       <div className={`mint-status ${mintStatus}`}>
         {mintStatus === "pending" && (
-          <p>
-            Minting your NFT... Please wait and don't close
-            this window.
-          </p>
+          <p>Minting your NFT... Please wait and don't close this window.</p>
         )}
         {mintStatus === "success" && (
           <div>
-            <p>
-              Your NFT has been successfully minted! 🎉
-            </p>
+            <p>Your NFT has been successfully minted! 🎉</p>
             {txHash && (
               <a
                 href={`https://optimistic.etherscan.io/tx/${txHash}`}
@@ -285,17 +210,12 @@ const MintNFT: React.FC<MintNFTProps> = ({ narrativePath }) => {
             )}
             {tokenAwardStatus === "pending" && (
               <div className="token-award-status">
-                <p>
-                  Awarding your Mojo tokens... Please wait.
-                </p>
+                <p>Awarding your Mojo tokens... Please wait.</p>
               </div>
             )}
             {tokenAwardStatus === "success" && (
               <div className="token-award-status success">
-                <p>
-                  {mojoScore} Mojo tokens have been awarded to
-                  your wallet! 🎉
-                </p>
+                <p>{mojoScore} Mojo tokens have been awarded to your wallet! 🎉</p>
                 {tokenTxHash && (
                   <a
                     href={`https://optimistic.etherscan.io/tx/${tokenTxHash}`}
@@ -310,63 +230,31 @@ const MintNFT: React.FC<MintNFTProps> = ({ narrativePath }) => {
             )}
             {tokenAwardStatus === "error" && (
               <div className="token-award-status error">
-                <p>
-                  There was an issue awarding your Mojo
-                  tokens. Please contact support.
-                </p>
+                <p>There was an issue awarding your Mojo tokens. Please contact support.</p>
               </div>
             )}
           </div>
         )}
-        {mintStatus === "error" && (
-          <div>
-            <p>Error minting your NFT:</p>
-            <div className="error-details">
-              {errorMessage}
-            </div>
-          </div>
-        )}
+        {mintStatus === "error" && renderError(`Error minting your NFT: ${errorMessage}`)}
       </div>
     );
   };
 
-  // Function to render pre-mint status
   const renderPreMintStatus = () => {
     if (mintStatus !== "idle") return null;
 
     if (!address) {
       return (
         <div className="connect-prompt">
-          <p>
-            Please connect your wallet to mint an NFT.
-          </p>
+          <p>Please connect your wallet to mint an NFT.</p>
         </div>
       );
     }
 
-    if (insufficientFunds) {
-      return (
-        <div className="insufficient-funds-prompt">
-          <p>
-            You don't have enough ETH to complete this transaction.
-          </p>
-          <p className="balance-info">
-            Required: {formatMintFee(mintFee?.toString() || "0")} ETH (mint fee) + gas
-          </p>
-          <p className="balance-info">
-            Your balance: {balance ? formatMintFee(balance.value) : "0"} ETH
-          </p>
-        </div>
-      );
-    }
-
-    // Check if we're on Optimism
     if (isMismatched) {
       return (
         <div className="network-prompt">
-          <p>
-            Please switch your wallet to the Optimism network to mint your NFT.
-          </p>
+          <p>Please switch your wallet to the Optimism network to mint your NFT.</p>
           <p className="network-help">
             Need help? In your wallet, look for the network selector and choose "Optimism".
           </p>
@@ -377,11 +265,7 @@ const MintNFT: React.FC<MintNFTProps> = ({ narrativePath }) => {
           >
             {switchNetwork ? "Switch to Optimism" : "Switch Network in Wallet"}
           </button>
-          {networkError && (
-            <p className="network-error">
-              {networkError}
-            </p>
-          )}
+          {networkError && <p className="network-error">{networkError}</p>}
         </div>
       );
     }
@@ -389,7 +273,6 @@ const MintNFT: React.FC<MintNFTProps> = ({ narrativePath }) => {
     return null;
   };
 
-  // Function to render owner section
   const renderOwnerSection = () => {
     if (!isOwner || !address) return null;
 
@@ -401,15 +284,11 @@ const MintNFT: React.FC<MintNFTProps> = ({ narrativePath }) => {
           disabled={withdrawStatus === "pending"}
           className="withdraw-button"
         >
-          {withdrawStatus === "pending"
-            ? "Withdrawing..."
-            : "Withdraw Contract Balance"}
+          {withdrawStatus === "pending" ? "Withdrawing..." : "Withdraw Contract Balance"}
         </button>
         {withdrawStatus === "success" && (
           <div className="withdraw-status success">
-            <p>
-              Funds have been successfully withdrawn! 🎉
-            </p>
+            <p>Funds have been successfully withdrawn! 🎉</p>
             {withdrawTxHash && (
               <a
                 href={`https://optimistic.etherscan.io/tx/${withdrawTxHash}`}
@@ -422,16 +301,11 @@ const MintNFT: React.FC<MintNFTProps> = ({ narrativePath }) => {
             )}
           </div>
         )}
-        {withdrawStatus === "error" && (
-          <div className="withdraw-status error">
-            <p>Error withdrawing funds: {errorMessage}</p>
-          </div>
-        )}
+        {withdrawStatus === "error" && renderError(`Error withdrawing funds: ${errorMessage}`)}
       </div>
     );
   };
 
-  // Function to handle withdrawal (for contract owner)
   const handleWithdraw = async () => {
     if (!isOwner || !contract) return;
 
@@ -448,14 +322,11 @@ const MintNFT: React.FC<MintNFTProps> = ({ narrativePath }) => {
       setWithdrawTxHash(withdrawTx.receipt.transactionHash);
       setWithdrawStatus("success");
     } catch (error) {
-      console.error("Withdrawal error:", error);
-      const errorMsg = error instanceof Error ? error.message : "Unknown error occurred";
-      setErrorMessage(errorMsg);
+      setErrorMessage(error instanceof Error ? error.message : "Unknown error occurred");
       setWithdrawStatus("error");
     }
   };
 
-  // Function to handle minting
   const handleMint = async () => {
     if (!address || !contract) {
       setErrorMessage("Please connect your wallet");
@@ -481,16 +352,12 @@ const MintNFT: React.FC<MintNFTProps> = ({ narrativePath }) => {
     setErrorMessage("");
 
     try {
-      // Create metadata that now includes the image URL based on narrative path
-      const metadataUriWithImage = createMetadata(address, narrativePath, mojoScore);
+      const metadataUri = createMetadata(address, narrativePath, mojoScore);
 
-      // Call mintTo with the correct parameters
       const mintTx = await callContract({
         functionName: "mintTo",
-        args: [address, metadataUriWithImage, mojoScore, sanitizedPath],
-        overrides: {
-          value: mintFee,
-        },
+        args: [address, metadataUri, mojoScore, sanitizedPath],
+        overrides: { value: mintFee },
       });
 
       if (!mintTx || !mintTx.receipt) {
@@ -500,42 +367,28 @@ const MintNFT: React.FC<MintNFTProps> = ({ narrativePath }) => {
       setTxHash(mintTx.receipt.transactionHash);
       setMintStatus("success");
 
-      // Award Mojo tokens after successful mint
       setTimeout(async () => {
         try {
           await handleAwardMojoTokens();
-        } catch (error) {
-          console.error("Error awarding tokens:", error);
+        } catch {
           setTokenAwardStatus("error");
         }
       }, 5000);
-
     } catch (error) {
-      console.error("Mint error:", error);
       setErrorMessage(error instanceof Error ? error.message : "Unknown error occurred");
       setMintStatus("error");
     }
   };
 
-  // Function to handle awarding Mojo tokens using the service
   const handleAwardMojoTokens = async () => {
-    if (!address || mojoScore <= 0 || !sanitizedPath) {
-      console.error("Missing required data for token award");
-      return;
-    }
+    if (!address || mojoScore <= 0 || !sanitizedPath) return;
 
     setTokenAwardStatus("pending");
     try {
-      const result = await awardMojoTokensService({
-        address,
-        mojoScore,
-        narrativePath: sanitizedPath
-      });
-      
+      const result = await awardMojoTokensService({ address, mojoScore, narrativePath: sanitizedPath });
       setTokenTxHash(result.txHash || '');
       setTokenAwardStatus("success");
-    } catch (error) {
-      console.error("Error awarding tokens:", error);
+    } catch {
       setTokenAwardStatus("error");
     }
   };
@@ -548,13 +401,10 @@ const MintNFT: React.FC<MintNFTProps> = ({ narrativePath }) => {
       {mintStatus !== "success" && (
         <div className="mojo-score-preview">
           <p>
-            Expected Mojo Score:{" "}
-            <span className="mojo-score">{mojoScore}</span>
+            Expected Mojo Score: <span className="mojo-score">{mojoScore}</span>
           </p>
           <p className="mojo-description">
-            After minting, you'll receive{" "}
-            <span className="mojo-score">{mojoScore}</span>{" "}
-            Mojo tokens based on your engagement!
+            After minting, you'll receive <span className="mojo-score">{mojoScore}</span> Mojo tokens based on your engagement!
           </p>
         </div>
       )}
@@ -579,10 +429,8 @@ const MintNFT: React.FC<MintNFTProps> = ({ narrativePath }) => {
 
       {mintStatus !== "success" && (
         <p className="mint-info">
-          Minting will create your unique NFT on the
-          Optimism blockchain.
-          {mintFee &&
-            ` Mint fee: ${formatMintFee(mintFee)} ETH`}
+          Minting will create your unique NFT on the Optimism blockchain.
+          {mintFee && ` Mint fee: ${formatMintFee(mintFee)} ETH`}
         </p>
       )}
 
