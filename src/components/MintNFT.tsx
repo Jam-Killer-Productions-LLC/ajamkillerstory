@@ -65,28 +65,28 @@ const MintNFT: React.FC<MintNFTProps> = ({ narrativePath, metadataUri }) => {
   const [isMinting, setIsMinting] = useState(false);
   const [lastNonce, setLastNonce] = useState<number | null>(null);
 
-  // Use contract hook – note the explicit function signature for the payable variant:
+  // Load the contract using the original hook; the contract should load as before.
   const { contract } = useContract(NFT_CONTRACT_ADDRESS, contractAbi);
+
+  // Here we explicitly tell thirdweb to use the payable version of mintTo (4 parameters)
   const { mutateAsync: mintTo } = useContractWrite(
     contract,
     "mintTo(address,string,uint256,string)"
   );
   const { data: mintFee, isLoading: isMintFeeLoading } = useContractRead(contract, "mintFee");
 
-  // Set up sanitized narrativePath and mojoScore on mount
+  // Setup sanitized narrativePath and mojoScore; this logic remains as before.
   useEffect(() => {
     if (!narrativePath || !allowedPaths.includes(narrativePath)) {
       setErrorMessage("Invalid narrative path");
       setMintStatus("error");
       return;
     }
-    // For this implementation, we assume narrativePath itself is used as narrative text.
-    // If you have additional sanitization, apply it here.
     setSanitizedPath(narrativePath);
     setMojoScore(calculateMojoScore(narrativePath));
   }, [narrativePath]);
 
-  // Network check
+  // Check if the wallet is connected to Optimism.
   useEffect(() => {
     const checkNetwork = async () => {
       if (!window.ethereum) {
@@ -121,20 +121,17 @@ const MintNFT: React.FC<MintNFTProps> = ({ narrativePath, metadataUri }) => {
   };
 
   const handleMint = useCallback(async () => {
+    // Use the same check as before: if address, contract, sanitizedPath are missing, or if already minting.
     if (!address || !contract || !sanitizedPath || isMinting) {
       setErrorMessage(
-        !address
-          ? "Connect your wallet"
-          : !contract
-            ? "Contract not loaded"
-            : !sanitizedPath
-              ? "Narrative cannot be empty"
-              : "Mint already in progress"
+        !address ? "Connect your wallet" :
+        !contract ? "Contract not loaded" :
+        !sanitizedPath ? "Narrative cannot be empty" :
+        "Mint already in progress"
       );
       setMintStatus("error");
       return;
     }
-
     if (!allowedPaths.includes(narrativePath)) {
       setErrorMessage("Invalid narrative path");
       setMintStatus("error");
@@ -146,19 +143,18 @@ const MintNFT: React.FC<MintNFTProps> = ({ narrativePath, metadataUri }) => {
     setErrorMessage("");
 
     try {
-      // Create tokenURI using metadataUri instead of building new metadata,
-      // since you mentioned the successful mint metadata is already available.
+      // Use the metadataUri passed down from the final narrative—this is your confirmed, working metadata.
       const tokenURI = metadataUri;
       if (!tokenURI.startsWith("ipfs://") && !tokenURI.startsWith("data:application/json;base64,")) {
         throw new Error("Invalid metadata format");
       }
 
-      // Set up the mint fee – using mintFee from contract if available, else fallback.
+      // Set the mint fee using the contract's mintFee if available.
       const fee = (mintFee && ethers.BigNumber.from(mintFee).gt(0))
         ? mintFee
         : ethers.BigNumber.from("777000000000000");
 
-      // Prevent duplicate calls by checking nonce from signer.
+      // Fetch nonce to help guard against duplicate calls.
       const provider = new ethers.providers.Web3Provider(window.ethereum);
       const signer = provider.getSigner();
       const currentNonce = await signer.getTransactionCount("pending");
@@ -167,24 +163,26 @@ const MintNFT: React.FC<MintNFTProps> = ({ narrativePath, metadataUri }) => {
       }
       setLastNonce(currentNonce);
 
-      console.log("Minting with", { address, tokenURI, mojoScore, narrative: sanitizedPath, fee, nonce: currentNonce });
+      console.log("Minting NFT with parameters:", { address, tokenURI, mojoScore, narrative: sanitizedPath, fee, nonce: currentNonce });
       
       // Call the payable mintTo function explicitly.
       const tx = await mintTo({
         args: [address, tokenURI, mojoScore, sanitizedPath],
         overrides: { value: fee, nonce: currentNonce },
       });
-      
+
       if (!tx || !tx.receipt) {
         throw new Error("Mint transaction failed");
       }
-
       const receipt = tx.receipt;
       console.log("Mint receipt:", receipt);
 
-      // Ensure exactly one Transfer event is present.
-      if (receipt.logs.filter((log: any) => log.topics && log.topics[0].includes("Transfer")).length !== 1) {
-        console.warn("Unexpected number of Transfer events:", receipt.logs);
+      // Optionally, verify that exactly one Transfer event occurred.
+      const transferEvents = receipt.logs.filter((log: any) =>
+        log.topics && log.topics[0].includes("Transfer")
+      );
+      if (transferEvents.length !== 1) {
+        console.warn("Unexpected number of Transfer events:", transferEvents.length);
         throw new Error("Multiple mint events detected");
       }
 
