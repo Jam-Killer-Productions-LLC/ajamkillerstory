@@ -170,6 +170,7 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
       setIsWalletReady(false);
       setIsOwner(false);
       setInsufficientFunds(false);
+      setIsOnOptimism(false);
     }
   }, [address]);
 
@@ -186,41 +187,48 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
 
   useEffect(() => {
     const checkNetwork = async () => {
-      if (!sdk) return;
+      if (!address || !sdk) return;
+
       try {
+        // Try Thirdweb SDK first
         const chainId = await sdk.wallet.getChainId();
-        setIsOnOptimism(chainId === OPTIMISM_CHAIN_ID);
+        const onOptimism = chainId === OPTIMISM_CHAIN_ID;
+        setIsOnOptimism(onOptimism);
         setNetworkError("");
+        if (onOptimism) return;
+
+        // Fallback to window.ethereum if SDK fails
+        if (window.ethereum) {
+          const providerChainId = await window.ethereum.request({ method: "eth_chainId" });
+          const parsedChainId = parseInt(providerChainId, 16);
+          setIsOnOptimism(parsedChainId === OPTIMISM_CHAIN_ID);
+          setNetworkError("");
+        }
       } catch (error) {
         console.error("Error checking network:", error);
         setIsOnOptimism(false);
+        setNetworkError("Failed to verify network. Please ensure your wallet is on Optimism.");
       }
     };
 
-    if (address && sdk) {
-      checkNetwork();
-    }
+    checkNetwork();
   }, [address, sdk, isMismatched]);
-
-  useEffect(() => {
-    if (isMismatched && address) {
-      handleSwitchNetwork();
-    }
-  }, [isMismatched, address]);
 
   const handleSwitchNetwork = async () => {
     setNetworkError("");
     try {
       if (!switchNetwork) {
-        throw new Error("Network switching not available in your wallet");
+        setNetworkError("Network switching not available. Please switch to Optimism manually in your wallet.");
+        return;
       }
       await switchNetwork(OPTIMISM_CHAIN_ID);
+      setIsOnOptimism(true);
     } catch (error) {
       console.error("Network switch error:", error);
       setNetworkError(
         error instanceof Error
           ? error.message
-          : "Failed to switch networks. Please switch manually in your wallet."
+          : "Failed to switch networks. Please switch to Optimism manually in your wallet."
       );
     }
   };
@@ -501,7 +509,7 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
       {mintStatus !== "success" && (
         <p className="mint-info">
           Minting will create your unique NFT on the Optimism blockchain.
-          {mintFee && ` Mint fee: ${formatMintFee(mintFee)} ETH`}
+          {mintFee && !isMintFeeLoading && ` Mint fee: ${formatMintFee(mintFee)} ETH`}
         </p>
       )}
 
