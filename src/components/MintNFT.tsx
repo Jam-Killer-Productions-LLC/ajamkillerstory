@@ -6,7 +6,6 @@ import {
   useContractRead,
   useSDK,
   useNetwork,
-  useNetworkMismatch,
 } from "@thirdweb-dev/react";
 import contractAbi from "../contractAbi.json";
 import { ethers } from "ethers";
@@ -53,12 +52,12 @@ const calculateMojoScore = (path: string): number => {
 };
 
 const formatMintFee = (fee: any): string => {
-  if (!fee) return "0";
   try {
+    if (!fee) return "0.000777";
     return (Number(fee.toString()) / 1e18).toFixed(4);
   } catch (error) {
     console.error("Error formatting mint fee:", error);
-    return "0";
+    return "0.000777";
   }
 };
 
@@ -140,7 +139,6 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
   const address = useAddress();
   const sdk = useSDK();
   const [, switchNetwork] = useNetwork();
-  const isMismatched = useNetworkMismatch();
   const [isOnOptimism, setIsOnOptimism] = useState<boolean>(false);
   const [networkError, setNetworkError] = useState<string>("");
   const [sanitizedPath, setSanitizedPath] = useState<string>("");
@@ -187,42 +185,59 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
 
   useEffect(() => {
     const checkNetwork = async () => {
-      if (!address || !sdk) return;
+      if (!address) return;
 
-      try {
-        // Try Thirdweb SDK first
-        const chainId = await sdk.wallet.getChainId();
-        const onOptimism = chainId === OPTIMISM_CHAIN_ID;
-        setIsOnOptimism(onOptimism);
-        setNetworkError("");
-        if (onOptimism) return;
+      console.log("Checking network...");
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          // Prefer window.ethereum for reliability
+          if (window.ethereum) {
+            const providerChainId = await window.ethereum.request({ method: "eth_chainId" });
+            const parsedChainId = parseInt(providerChainId, 16);
+            console.log(`Attempt ${attempt}: window.ethereum chainId: ${parsedChainId}`);
+            if (parsedChainId === OPTIMISM_CHAIN_ID) {
+              setIsOnOptimism(true);
+              setNetworkError("");
+              return;
+            }
+          }
 
-        // Fallback to window.ethereum if SDK fails
-        if (window.ethereum) {
-          const providerChainId = await window.ethereum.request({ method: "eth_chainId" });
-          const parsedChainId = parseInt(providerChainId, 16);
-          setIsOnOptimism(parsedChainId === OPTIMISM_CHAIN_ID);
-          setNetworkError("");
+          // Fallback to SDK
+          if (sdk) {
+            const chainId = await sdk.wallet.getChainId();
+            console.log(`Attempt ${attempt}: sdk chainId: ${chainId}`);
+            if (chainId === OPTIMISM_CHAIN_ID) {
+              setIsOnOptimism(true);
+              setNetworkError("");
+              return;
+            }
+          }
+
+          setIsOnOptimism(false);
+        } catch (error) {
+          console.error(`Attempt ${attempt}: Error checking network:`, error);
+          setIsOnOptimism(false);
+          setNetworkError("Failed to verify network. Please ensure your wallet is on Optimism.");
         }
-      } catch (error) {
-        console.error("Error checking network:", error);
-        setIsOnOptimism(false);
-        setNetworkError("Failed to verify network. Please ensure your wallet is on Optimism.");
+        // Wait 1s before retry
+        await new Promise(resolve => setTimeout(resolve, 1000));
       }
     };
 
     checkNetwork();
-  }, [address, sdk, isMismatched]);
+  }, [address, sdk]);
 
   const handleSwitchNetwork = async () => {
     setNetworkError("");
+    if (!switchNetwork) {
+      setNetworkError("Network switching not available. Please switch to Optimism manually in your wallet.");
+      return;
+    }
+
     try {
-      if (!switchNetwork) {
-        setNetworkError("Network switching not available. Please switch to Optimism manually in your wallet.");
-        return;
-      }
       await switchNetwork(OPTIMISM_CHAIN_ID);
       setIsOnOptimism(true);
+      setNetworkError("");
     } catch (error) {
       console.error("Network switch error:", error);
       setNetworkError(
@@ -315,7 +330,7 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
         <div className="insufficient-funds-prompt">
           <p>You don't have enough ETH to complete this transaction.</p>
           <p className="balance-info">
-            Required: {formatMintFee(mintFee?.toString() || "0")} ETH (mint fee) + gas
+            Required: {formatMintFee(mintFee || "0")} ETH (mint fee) + gas
           </p>
         </div>
       );
@@ -333,7 +348,7 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
             className="switch-network-btn"
             disabled={!switchNetwork}
           >
-            {switchNetwork ? "Switch to Optimism" : "Switch Network in Wallet"}
+            Switch to Optimism
           </button>
           {networkError && <p className="network-error">{networkError}</p>}
         </div>
@@ -425,6 +440,22 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
       const metadataUriWithImage = createMetadata(address, sanitizedPath, mojoScore);
       const fee = mintFee && ethers.BigNumber.from(mintFee).gt(0) ? mintFee : ethers.BigNumber.from("777000000000000");
 
+      console.log("Minting with:", {
+        address,
+        metadataUriWithImage: metadataUriWithImage.slice(0, 100) + "...",
+        mojoScore,
+        narrativePath: sanitizedPath,
+        mintFee: formatMintFee(fee),
+      });
+
+      // Check balance
+      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      const balance = await provider.getBalance(address);
+      const totalCost = fee.add(ethers.BigNumber.from("100000000000000")); // Fee + estimated gas
+      if (balance.lt(totalCost)) {
+        throw new Error(`Insufficient funds: Need ${formatMintFee(totalCost)} ETH, have ${formatMintFee(balance)} ETH`);
+      }
+
       const mintTx = await mintTo({
         args: [address, metadataUriWithImage, mojoScore, sanitizedPath],
         overrides: { value: fee },
@@ -445,7 +476,14 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
         }
       }, 5000);
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Unknown error occurred");
+      console.error("Mint error:", error);
+      setErrorMessage(
+        error instanceof Error
+          ? error.message.includes("revert")
+            ? "Transaction failed: Contract rejected (possibly minting paused or invalid parameters)"
+            : error.message
+          : "Unknown error occurred during minting"
+      );
       setMintStatus("error");
     }
   };
@@ -509,7 +547,8 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
       {mintStatus !== "success" && (
         <p className="mint-info">
           Minting will create your unique NFT on the Optimism blockchain.
-          {mintFee && !isMintFeeLoading && ` Mint fee: ${formatMintFee(mintFee)} ETH`}
+          {isMintFeeLoading && " Loading mint fee..."}
+          {!isMintFeeLoading && ` Mint fee: ${formatMintFee(mintFee || "0")} ETH`}
         </p>
       )}
 
