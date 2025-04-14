@@ -8,10 +8,12 @@ import {
   useNetworkMismatch,
 } from "@thirdweb-dev/react";
 import contractAbi from "../contractAbi.json";
+import { ethers } from "ethers";
 
 const NFT_CONTRACT_ADDRESS = "0x914b1339944d48236738424e2dbdbb72a212b2f5";
 const CONTRACT_OWNER_ADDRESS = "0x2af17552f27021666BcD3E5Ba65f68Cb5Ec217fc";
 const OPTIMISM_CHAIN_ID = 10;
+const MINT_FEE_WEI = ethers.utils.parseEther("0.000777");
 
 const IMAGE_URLS: { [key: string]: string } = {
   A: "https://bafybeiakvemnjhgbgknb4luge7kayoyslnkmgqcw7xwaoqmr5l6ujnalum.ipfs.dweb.link?filename=dktjnft1.gif",
@@ -95,7 +97,7 @@ const generateUniqueName = (address: string): string => {
     address.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
   ) % nameOptions.length;
   
-  return nameOptions[nameIndex];
+  return `Don't Kill the Jam : Reward it with Mojo ${nameOptions[nameIndex]}`;
 };
 
 const sanitizeNarrative = (narrative: string): string => {
@@ -145,7 +147,7 @@ const MintNFT: React.FC<MintNFTProps> = ({ narrativePath }) => {
 
   const { contract, isLoading: isContractLoading } = useContract(NFT_CONTRACT_ADDRESS, contractAbi);
   const { mutateAsync: callContract } = useContractWrite(contract);
-  const { data: mintFee } = useContractRead(contract, "MINT_FEE");
+  const { data: mintFee } = useContractRead(contract, "mintFee");
 
   useEffect(() => {
     setIsOwner(address?.toLowerCase() === CONTRACT_OWNER_ADDRESS.toLowerCase());
@@ -353,11 +355,12 @@ const MintNFT: React.FC<MintNFTProps> = ({ narrativePath }) => {
 
     try {
       const metadataUri = createMetadata(address, narrativePath, mojoScore);
+      const fee = mintFee && ethers.BigNumber.from(mintFee).gt(0) ? mintFee : MINT_FEE_WEI;
 
       const mintTx = await callContract({
         functionName: "mintTo",
         args: [address, metadataUri, mojoScore, sanitizedPath],
-        overrides: { value: mintFee },
+        overrides: { value: fee },
       });
 
       if (!mintTx || !mintTx.receipt) {
