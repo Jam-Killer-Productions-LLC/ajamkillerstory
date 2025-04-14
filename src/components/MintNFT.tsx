@@ -190,7 +190,6 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
       console.log("Checking network...");
       for (let attempt = 1; attempt <= 3; attempt++) {
         try {
-          // Prefer window.ethereum for reliability
           if (window.ethereum) {
             const providerChainId = await window.ethereum.request({ method: "eth_chainId" });
             const parsedChainId = parseInt(providerChainId, 16);
@@ -202,7 +201,6 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
             }
           }
 
-          // Fallback to SDK
           if (sdk) {
             const chainId = await sdk.wallet.getChainId();
             console.log(`Attempt ${attempt}: sdk chainId: ${chainId}`);
@@ -219,7 +217,6 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
           setIsOnOptimism(false);
           setNetworkError("Failed to verify network. Please ensure your wallet is on Optimism.");
         }
-        // Wait 1s before retry
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
     };
@@ -235,6 +232,7 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
     }
 
     try {
+      console.log("Attempting to switch to Optimism...");
       await switchNetwork(OPTIMISM_CHAIN_ID);
       setIsOnOptimism(true);
       setNetworkError("");
@@ -442,18 +440,30 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
 
       console.log("Minting with:", {
         address,
-        metadataUriWithImage: metadataUriWithImage.slice(0, 100) + "...",
+        metadataLength: metadataUriWithImage.length,
         mojoScore,
         narrativePath: sanitizedPath,
         mintFee: formatMintFee(fee),
+        mintFeeRaw: fee.toString(),
       });
 
       // Check balance
       const provider = new ethers.providers.Web3Provider(window.ethereum);
       const balance = await provider.getBalance(address);
-      const totalCost = fee.add(ethers.BigNumber.from("100000000000000")); // Fee + estimated gas
+      const gasEstimate = ethers.BigNumber.from("100000000000000"); // Conservative gas
+      const totalCost = fee.add(gasEstimate);
       if (balance.lt(totalCost)) {
         throw new Error(`Insufficient funds: Need ${formatMintFee(totalCost)} ETH, have ${formatMintFee(balance)} ETH`);
+      }
+
+      // Static call to debug revert
+      try {
+        await contract.callStatic.mintTo(address, metadataUriWithImage, mojoScore, sanitizedPath, {
+          value: fee,
+        });
+      } catch (staticError) {
+        console.error("Static mintTo error:", staticError);
+        throw new Error(`Contract validation failed: ${staticError.reason || "Unknown reason"}`);
       }
 
       const mintTx = await mintTo({
@@ -479,9 +489,7 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
       console.error("Mint error:", error);
       setErrorMessage(
         error instanceof Error
-          ? error.message.includes("revert")
-            ? "Transaction failed: Contract rejected (possibly minting paused or invalid parameters)"
-            : error.message
+          ? error.message
           : "Unknown error occurred during minting"
       );
       setMintStatus("error");
