@@ -106,20 +106,39 @@ const generateUniqueName = (address: string): string => {
 };
 
 const sanitizeNarrative = (narrative: string): string => {
-  return narrative
+  console.log("Sanitizing narrative:", narrative);
+
+  // Basic NSFW blocklist (expand as needed)
+  const nsfwWords = ["fuck", "shit", "asshole", "bitch", "damn"]; // Example, keep minimal
+  let cleaned = narrative.toLowerCase();
+
+  // Replace NSFW words with asterisks
+  nsfwWords.forEach(word => {
+    const regex = new RegExp(`\\b${word}\\b`, "gi");
+    cleaned = cleaned.replace(regex, "*".repeat(word.length));
+  });
+
+  // Remove unsafe chars, keep basic punctuation
+  cleaned = cleaned
     .replace(/[^\w\s.,!?-]/gi, "")
     .trim()
-    .slice(0, 500);
+    .slice(0, 500); // Cap at 500 chars
+
+  console.log("Sanitized narrative:", cleaned);
+  return cleaned;
 };
 
 const createMetadata = (
   address: string,
   narrativePath: string,
+  sanitizedNarrative: string,
   mojoScore: number
 ): string => {
   const metadata = {
     name: generateUniqueName(address),
-    description: `NFT minted on Optimism with narrative path ${narrativePath}`,
+    description: sanitizedNarrative
+      ? `NFT minted on Optimism. User narrative: ${sanitizedNarrative}`
+      : `NFT minted on Optimism with narrative path ${narrativePath}`,
     image: IMAGE_URLS[narrativePath] || IMAGE_URLS["A"],
     attributes: [
       { trait_type: "Mojo Score", value: mojoScore },
@@ -176,7 +195,7 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
     if (narrativePath) {
       const sanitized = sanitizeNarrative(narrativePath);
       setSanitizedPath(sanitized);
-      setMojoScore(calculateMojoScore(sanitized));
+      setMojoScore(calculateMojoScore(narrativePath.split(":")[0].trim())); // Use path prefix for score
     } else {
       setSanitizedPath("");
       setMojoScore(0);
@@ -426,7 +445,7 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
       return;
     }
 
-    if (!allowedPaths.includes(sanitizedPath)) {
+    if (!allowedPaths.includes(sanitizedPath.charAt(0))) {
       setErrorMessage("Invalid narrative path");
       return;
     }
@@ -435,7 +454,7 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
     setErrorMessage("");
 
     try {
-      const metadataUriWithImage = createMetadata(address, sanitizedPath, mojoScore);
+      const metadataUriWithImage = createMetadata(address, sanitizedPath.charAt(0), sanitizedPath, mojoScore);
       const fee = mintFee && ethers.BigNumber.from(mintFee).gt(0) ? mintFee : ethers.BigNumber.from("777000000000000");
 
       console.log("Minting with:", {
@@ -450,7 +469,7 @@ const MintNFT: React.FC<MintNFTProps> = ({ metadataUri, narrativePath }) => {
       // Check balance
       const provider = new ethers.providers.Web3Provider(window.ethereum);
       const balance = await provider.getBalance(address);
-      const gasEstimate = ethers.BigNumber.from("100000000000000"); // Conservative gas
+      const gasEstimate = ethers.BigNumber.from("100000000000000");
       const totalCost = fee.add(gasEstimate);
       if (balance.lt(totalCost)) {
         throw new Error(`Insufficient funds: Need ${formatMintFee(totalCost)} ETH, have ${formatMintFee(balance)} ETH`);
