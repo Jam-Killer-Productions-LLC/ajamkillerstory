@@ -76,5 +76,5 @@ export class NFTContractService {
 const sdk = new ThirdwebSDK("optimism");
 export const nftService = new NFTContractService(
   sdk,
-  "0xfA2A3452D86A9447e361205DFf29B1DD441f1821"
+  "0x914b1339944d48236738424e2dbdbb72a212b2f5"
 );
