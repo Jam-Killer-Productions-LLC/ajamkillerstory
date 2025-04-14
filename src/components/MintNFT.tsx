@@ -97,6 +97,13 @@ const sanitizeNarrative = (narrative: string): string => {
   return cleaned.replace(/[^\w\s.,!?-]/gi, "").trim().slice(0, 500);
 };
 
+const getNarrativePath = (narrative: string): string => {
+  if (narrative.startsWith("Path A")) return "A";
+  if (narrative.startsWith("Path B")) return "B";
+  if (narrative.startsWith("Path C")) return "C";
+  return "A"; // Fallback
+};
+
 const createMetadata = (
   address: string,
   narrativePath: string,
@@ -105,9 +112,7 @@ const createMetadata = (
 ): string => {
   const metadata = {
     name: generateUniqueName(address),
-    description: sanitizedNarrative
-      ? `NFT minted on Optimism. User narrative: ${sanitizedNarrative}`
-      : `NFT minted on Optimism with narrative path ${narrativePath}`,
+    description: `NFT minted on Optimism. User narrative: ${sanitizedNarrative}`,
     image: IMAGE_URLS[narrativePath] || IMAGE_URLS["A"],
     attributes: [
       { trait_type: "Mojo Score", value: mojoScore },
@@ -153,7 +158,8 @@ const MintNFT: React.FC<MintNFTProps> = ({ narrativePath }) => {
     if (narrativePath) {
       const sanitized = sanitizeNarrative(narrativePath);
       setSanitizedPath(sanitized);
-      setMojoScore(calculateMojoScore(narrativePath.split(":")[0].trim()));
+      const path = getNarrativePath(narrativePath);
+      setMojoScore(calculateMojoScore(path));
     } else {
       setSanitizedPath("");
       setMojoScore(0);
@@ -226,7 +232,8 @@ const MintNFT: React.FC<MintNFTProps> = ({ narrativePath }) => {
     setErrorMessage("");
 
     try {
-      const metadata = createMetadata(address, sanitizedPath.split(":")[0].trim(), sanitizedPath, mojoScore);
+      const path = getNarrativePath(sanitizedPath);
+      const metadata = createMetadata(address, path, sanitizedPath, mojoScore);
       const fee = mintFee && ethers.BigNumber.from(mintFee).gt(0) ? mintFee : ethers.BigNumber.from("777000000000000");
 
       const timeoutPromise = new Promise((_, reject) =>
@@ -268,7 +275,8 @@ const MintNFT: React.FC<MintNFTProps> = ({ narrativePath }) => {
       setErrorMessage(
         message.includes("rejected") ? "Transaction rejected by wallet" :
         message.includes("insufficient") ? "Not enough ETH for mint" :
-        message.includes("timeout") ? "Mint timed out, try again" : message
+        message.includes("timeout") ? "Mint timed out, try again" :
+        message.includes("revert") ? "Contract rejected transaction" : message
       );
       setMintStatus("error");
     }
