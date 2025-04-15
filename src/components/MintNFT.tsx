@@ -138,7 +138,8 @@ const MintNFT: FC<MintNFTProps> = ({
   const address = useAddress();
   const [, switchNetwork] = useNetwork();
 
-  // Add thirdweb contract hooks with explicit function signature to avoid overload ambiguity
+  // Add thirdweb contract hooks.
+  // We now force the payable mintTo overload by explicitly passing the full function signature.
   const { contract } = useContract(NFT_CONTRACT_ADDRESS);
   const { mutateAsync: mintTo } = useContractWrite(
     contract,
