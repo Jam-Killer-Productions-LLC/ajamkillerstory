@@ -8,10 +8,11 @@ import React, {
 import {
   useAddress,
   useNetwork,
+  useContract,
+  useContractWrite,
 } from "@thirdweb-dev/react";
 import { ethers } from "ethers";
 import { awardMojoTokensService } from "../services/mojotokenservice";
-
 
 // Configuration
 const NFT_CONTRACT_ADDRESS =
@@ -106,6 +107,16 @@ function generateUniqueName(address: string): string {
 }
 
 /**
+ * Create base64-encoded metadata URI for the NFT
+ */
+function createMetadataURI(metadata: any): string {
+  const encodedMetadata = Buffer.from(
+    JSON.stringify(metadata),
+  ).toString("base64");
+  return `data:application/json;base64,${encodedMetadata}`;
+}
+
+/**
  * Props for MintNFT
  */
 interface MintNFTProps {
@@ -123,6 +134,13 @@ const MintNFT: FC<MintNFTProps> = ({
   const address = useAddress();
   const [, switchNetwork] = useNetwork();
 
+  // Add thirdweb contract hooks
+  const { contract } = useContract(NFT_CONTRACT_ADDRESS);
+  const { mutateAsync: mintTo } = useContractWrite(
+    contract,
+    "mintTo",
+  );
+
   // Local state
   const [isOnOptimism, setIsOnOptimism] = useState(false);
   const [networkError, setNetworkError] = useState("");
@@ -135,50 +153,9 @@ const MintNFT: FC<MintNFTProps> = ({
   const [mojoScore, setMojoScore] = useState(0);
   const [txHash, setTxHash] = useState("");
   const [isMinting, setIsMinting] = useState(false);
-  const [mintFee, setMintFee] = useState<string>();
+  const [mintFee, setMintFee] = useState<string>("0.001");
   const [isMintFeeLoading, setIsMintFeeLoading] =
-    useState(true);
-
-  // NFT Contract Service
-  const [nftService, setNftService] =
-    useState<NFTContractService | null>(null);
-
-  // Initialize contract service when wallet is connected
-  useEffect(() => {
-    const initService = async () => {
-      if (address && (window as any).ethereum) {
-        try {
-          const provider =
-            new ethers.providers.Web3Provider(
-              (window as any).ethereum,
-            );
-          const signer = provider.getSigner();
-          const service = new NFTContractService(signer);
-          setNftService(service);
-
-          // Get mint fee
-          try {
-            const fee = await service.getMintFee();
-            setMintFee(fee);
-          } catch (error) {
-            console.error(
-              "Error fetching mint fee:",
-              error,
-            );
-          } finally {
-            setIsMintFeeLoading(false);
-          }
-        } catch (error) {
-          console.error(
-            "Error initializing NFT service:",
-            error,
-          );
-        }
-      }
-    };
-
-    initService();
-  }, [address]);
+    useState(false);
 
   // Process narrative path and user narrative
   useEffect(() => {
@@ -281,15 +258,15 @@ const MintNFT: FC<MintNFTProps> = ({
   const handleMint = useCallback(async () => {
     if (
       !address ||
-      !nftService ||
+      !contract ||
       !sanitizedNarrative ||
       isMinting
     ) {
       setErrorMessage(
         !address
           ? "Connect your wallet"
-          : !nftService
-            ? "Contract service not initialized"
+          : !contract
+            ? "Contract not loaded"
             : !sanitizedNarrative
               ? "Narrative cannot be empty"
               : "Mint already in progress",
@@ -315,13 +292,11 @@ const MintNFT: FC<MintNFTProps> = ({
         throw new Error("Failed to create metadata");
       }
 
-      // Prepare mint parameters
-      const mintParams = {
-        recipientAddress: address,
-        tokenURI: nftService.createMetadataURI(metadata),
-        mojoScore: mojoScore,
-        narrative: sanitizedNarrative,
-      };
+      // Create the token URI
+      const tokenURI = createMetadataURI(metadata);
+
+      // Default mint fee
+      const fee = ethers.utils.parseEther("0.001");
 
       console.log("Minting NFT with:", {
         address,
@@ -329,11 +304,19 @@ const MintNFT: FC<MintNFTProps> = ({
         path: narrativePath,
       });
 
-      // Execute mint transaction
-      const receipt = await nftService.mintNFT(mintParams);
-      console.log("Mint receipt:", receipt);
+      // Execute mint transaction using thirdweb
+      const tx = await mintTo({
+        args: [
+          address,
+          tokenURI,
+          mojoScore,
+          sanitizedNarrative,
+        ],
+        overrides: { value: fee },
+      });
 
-      setTxHash(receipt.transactionHash);
+      console.log("Mint transaction:", tx);
+      setTxHash(tx.receipt.transactionHash);
       setMintStatus("success");
 
       // Award mojo tokens after success
@@ -378,12 +361,13 @@ const MintNFT: FC<MintNFTProps> = ({
     }
   }, [
     address,
-    nftService,
+    contract,
     sanitizedNarrative,
     isMinting,
     narrativePath,
     mojoScore,
     createNFTMetadata,
+    mintTo,
   ]);
 
   return (
