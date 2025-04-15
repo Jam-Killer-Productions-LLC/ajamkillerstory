@@ -1,4 +1,4 @@
-// src/services/mojoTokenService.ts
+//src/services/mojotokenservice.ts
 import { ethers } from "ethers";
 
 interface MojoTokenRequest {
