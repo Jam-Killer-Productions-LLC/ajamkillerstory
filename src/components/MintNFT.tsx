@@ -63,7 +63,7 @@ function formatMintFee(fee: string | undefined): string {
 }
 
 /**
- * Sanitize user narrative - only filters extreme content
+ * Sanitize user narrative - only filters extreme content.
  */
 function sanitizeNarrative(narrative: string): string {
   if (!narrative) return "";
@@ -78,15 +78,18 @@ function sanitizeNarrative(narrative: string): string {
   extremeWords.forEach((word) => {
     const regex = new RegExp(
       `\\b${word.replace(/\*/g, "\\w")}\\b`,
-      "gi",
+      "gi"
     );
     cleaned = cleaned.replace(
       regex,
-      "*".repeat(word.length),
+      "*".repeat(word.length)
     );
   });
 
-  return cleaned.trim().slice(0, 500);
+  // Retain the full narrative if it doesn't exceed maxLength
+  const maxLength = 129; // Adjust as needed
+  const trimmed = cleaned.trim();
+  return trimmed.length > maxLength ? trimmed.slice(0, maxLength) : trimmed;
 }
 
 /**
@@ -115,7 +118,7 @@ function generateUniqueName(address: string): string {
  */
 function createMetadataURI(metadata: any): string {
   const encodedMetadata = Buffer.from(
-    JSON.stringify(metadata),
+    JSON.stringify(metadata)
   ).toString("base64");
   return `data:application/json;base64,${encodedMetadata}`;
 }
@@ -139,7 +142,7 @@ const MintNFT: FC<MintNFTProps> = ({
   const [, switchNetwork] = useNetwork();
 
   // Add thirdweb contract hooks.
-  // We now force the payable mintTo overload by explicitly passing the full function signature.
+  // We force the payable mintTo overload by explicitly passing the full function signature.
   const { contract } = useContract(NFT_CONTRACT_ADDRESS);
   const { mutateAsync: mintTo } = useContractWrite(
     contract,
@@ -274,7 +277,7 @@ const MintNFT: FC<MintNFTProps> = ({
             ? "Contract not loaded"
             : !sanitizedNarrative
               ? "Narrative cannot be empty"
-              : "Mint already in progress",
+              : "Mint already in progress"
       );
       setMintStatus("error");
       return;
@@ -309,16 +312,13 @@ const MintNFT: FC<MintNFTProps> = ({
         path: narrativePath,
       });
 
-      // Execute mint transaction using thirdweb
-      const tx = await mintTo({
-        args: [
-          address,
-          tokenURI,
-          mojoScore,
-          sanitizedNarrative,
-        ],
-        overrides: { value: fee },
-      });
+      // Execute mint transaction using contract.call.
+      // Wrap the parameters in an array to match the expected signature.
+      const tx = await contract.call(
+        "mintTo",
+        [address, tokenURI, mojoScore, sanitizedNarrative],
+        { value: fee }
+      );
 
       console.log("Mint transaction:", tx);
       setTxHash(tx.receipt.transactionHash);
@@ -338,10 +338,10 @@ const MintNFT: FC<MintNFTProps> = ({
           "Unknown error awarding tokens";
         console.error(
           "Error awarding tokens:",
-          rewardError,
+          rewardError
         );
         setErrorMessage(
-          `Mint succeeded but rewards failed: ${rMsg}`,
+          `Mint succeeded but rewards failed: ${rMsg}`
         );
       }
     } catch (error: any) {
@@ -358,7 +358,7 @@ const MintNFT: FC<MintNFTProps> = ({
                 ? "Contract rejected transaction"
                 : msg.includes("Invalid narrative")
                   ? "Invalid narrative path"
-                  : msg,
+                  : msg
       );
       setMintStatus("error");
     } finally {
@@ -372,16 +372,13 @@ const MintNFT: FC<MintNFTProps> = ({
     narrativePath,
     mojoScore,
     createNFTMetadata,
-    mintTo,
   ]);
 
   return (
     <div className="mint-nft-container">
       {mintStatus !== "idle" && (
         <div className={`mint-status ${mintStatus}`}>
-          {mintStatus === "pending" && (
-            <p>Minting your NFT...</p>
-          )}
+          {mintStatus === "pending" && <p>Minting your NFT...</p>}
           {mintStatus === "success" && (
             <div>
               <p>NFT minted successfully! 🎉</p>
@@ -424,8 +421,7 @@ const MintNFT: FC<MintNFTProps> = ({
         <div>
           <p>Mojo Score: {mojoScore}</p>
           <p>
-            You'll receive {mojoScore} Mojo tokens after
-            minting!
+            You'll receive {mojoScore} Mojo tokens after minting!
           </p>
         </div>
       )}
@@ -438,13 +434,15 @@ const MintNFT: FC<MintNFTProps> = ({
           !sanitizedNarrative ||
           isMinting
         }
-        className={`mint-button ${mintStatus === "success" ? "success" : ""}`}
+        className={`mint-button ${
+          mintStatus === "success" ? "success" : ""
+        }`}
       >
         {mintStatus === "pending"
           ? "Minting..."
           : mintStatus === "success"
-            ? "Minted!"
-            : "Mint NFT"}
+          ? "Minted!"
+          : "Mint NFT"}
       </button>
 
       {mintStatus !== "success" && (

@@ -428,8 +428,7 @@ const NarrativeBuilder: React.FC<NarrativeBuilderProps> = ({ onNarrativeFinalize
                                 <p>Your Mojo Score: <span className="mojo-score">{mojoScore}</span></p>
                             </div>
                             <MintNFT 
-                                metadataUri={baseTokenUri} 
-                                narrativePath={selectedPath} 
+                                narrativePath={selectedPath as "A" | "B" | "C"} 
                             />
                         </div>
                     )}
