@@ -3,7 +3,16 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta http-equiv="Content-Security-Policy" content="script_src 'self' 'unsafe-eval' https://narratives.producerprotocol.pro https://mojohand.producerprotocol.pro https://metaupload.producerprotocol.pro https://*.cloudflareinsights.com; connect_src 'self' https://narratives.producerprotocol.pro https://mojohand.producerprotocol.pro https://metaupload.producerprotocol.pro https://nftartist.producerprotocol.pro https://c.thirdweb.com; img_src 'self' https: data: blob:; style_src 'self' 'unsafe_inline';">
+    <meta http-equiv="Content-Security-Policy" content="
+      default-src 'self';
+      script-src 'self' https://mojohand.producerprotocol.pro https://static.cloudflareinsights.com https://*.thirdweb.com https://*.cloudflare.com https://*.producerprotocol.pro;
+      connect-src 'self' https://mojohand.producerprotocol.pro https://narratives.producerprotocol.pro https://*.producerprotocol.pro https://*.thirdweb.com https://*.cloudflare.com https://rpc.ankr.com/optimism wss://*.walletconnect.com https://*.infura.io wss://*.infura.io wss://www.walletlink.org;
+      img-src 'self' https://mojohand.producerprotocol.pro https://*.ipfs.dweb.link data:;
+      style-src 'self' 'unsafe-inline';
+      frame-src 'self' https://*.walletconnect.com;
+      object-src 'none';
+      base-uri 'self';
+    ">
     <link rel="icon" type="image/gif" href="https://bafybeig6dpytw3q4v7vzdy6sb7q4x3apqgrvfi3zsbvb3n6wvs5unfr36i.ipfs.dweb.link?filename=480.gif">
     <title>Don't Kill the Jam - A Jam Killer Story</title>
     <style>
