@@ -63,25 +63,29 @@ function formatMintFee(fee: string | undefined): string {
 }
 
 /**
- * Sanitize user narrative
+ * Sanitize user narrative - only filters extreme content
  */
 function sanitizeNarrative(narrative: string): string {
   if (!narrative) return "";
-  const nsfwWords = [
-    "fuck",
-    "shit",
-    "asshole",
-    "bitch",
-    "damn",
+
+  // Only filter extremely offensive words not allowed in R-rated movies
+  const extremeWords = [
+    "c*nt", // Censoring the actual spelling
+    "n*gger", // Censoring the actual spelling
   ];
+
   let cleaned = narrative;
-  nsfwWords.forEach((word) => {
-    const regex = new RegExp(`\\b${word}\\b`, "gi");
+  extremeWords.forEach((word) => {
+    const regex = new RegExp(
+      `\\b${word.replace(/\*/g, "\\w")}\\b`,
+      "gi",
+    );
     cleaned = cleaned.replace(
       regex,
       "*".repeat(word.length),
     );
   });
+
   return cleaned.trim().slice(0, 500);
 }
 
