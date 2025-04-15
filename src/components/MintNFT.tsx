@@ -10,7 +10,8 @@ import {
   useNetwork,
 } from "@thirdweb-dev/react";
 import { ethers } from "ethers";
-import { awardMojoTokensService } from "../services/mojoTokenService";
+import { awardMojoTokensService } from "../services/mojotokenservice";
+
 
 // Configuration
 const NFT_CONTRACT_ADDRESS =
