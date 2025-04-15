@@ -138,11 +138,11 @@ const MintNFT: FC<MintNFTProps> = ({
   const address = useAddress();
   const [, switchNetwork] = useNetwork();
 
-  // Add thirdweb contract hooks
+  // Add thirdweb contract hooks with explicit function signature to avoid overload ambiguity
   const { contract } = useContract(NFT_CONTRACT_ADDRESS);
   const { mutateAsync: mintTo } = useContractWrite(
     contract,
-    "mintTo",
+    "mintTo(address,string,uint256,string)"
   );
 
   // Local state
