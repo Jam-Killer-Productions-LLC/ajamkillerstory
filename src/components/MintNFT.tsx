@@ -10,7 +10,6 @@ import {
   useNetwork,
 } from "@thirdweb-dev/react";
 import { ethers } from "ethers";
-import { NFTContractService } from "../services/nftContractService";
 import { awardMojoTokensService } from "../services/mojoTokenService";
 
 // Configuration
