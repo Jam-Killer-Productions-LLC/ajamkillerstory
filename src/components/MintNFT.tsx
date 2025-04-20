@@ -148,7 +148,7 @@ const ConfirmationModal: FC<ConfirmationModalProps> = ({
 const MintNFT: FC = () => {
   const address = useAddress();
   const [, switchNetwork] = useNetwork();
-  const { contract, isLoading: contractLoading } = useContract(NFT_CONTRACT_ADDRESS, NFT_ABI);
+  const { contract, isLoading: contractLoading, error: contractError } = useContract(NFT_CONTRACT_ADDRESS, NFT_ABI);
   const { data: mintFee } = useContractRead(contract, "mintFee");
   const { mutateAsync: mint } = useContractWrite(contract, "mint");
 
@@ -162,6 +162,44 @@ const MintNFT: FC = () => {
   const [networkError, setNetworkError] = useState("");
   const [showConfirmation, setShowConfirmation] = useState(false);
 
+  // Detect and prioritize MetaMask provider
+  useEffect(() => {
+    const detectProvider = () => {
+      const { ethereum } = window as any;
+      if (!ethereum) {
+        setNetworkError("No wallet provider detected. Please install MetaMask.");
+        return;
+      }
+      // Prioritize MetaMask if multiple providers are present
+      if (ethereum.providers) {
+        const metaMaskProvider = ethereum.providers.find((p: any) => p.isMetaMask);
+        if (metaMaskProvider) {
+          (window as any).ethereum = metaMaskProvider;
+        } else {
+          setNetworkError("Multiple wallet providers detected. Please disable other wallets and keep MetaMask.");
+        }
+      } else if (!ethereum.isMetaMask) {
+        setNetworkError("Non-MetaMask provider detected. Please use MetaMask.");
+      }
+    };
+    detectProvider();
+  }, []);
+
+  // Check network and update fee
+  useEffect(() => {
+    if (!address || !(window as any).ethereum) return;
+    const checkNetwork = async () => {
+      try {
+        const chainId = parseInt(await (window as any).ethereum.request({ method: "eth_chainId" }), 16);
+        setOnOptimism(chainId === OPTIMISM_CHAIN_ID);
+        setNetworkError(chainId === OPTIMISM_CHAIN_ID ? "" : "Please switch to Optimism network");
+      } catch {
+        setNetworkError("Failed to verify network");
+      }
+    };
+    checkNetwork();
+  }, [address]);
+
   // Update fee when mintFee changes
   useEffect(() => {
     if (mintFee) {
@@ -174,35 +212,21 @@ const MintNFT: FC = () => {
     }
   }, [mintFee]);
 
-  // Check if on Optimism network
-  useEffect(() => {
-    if (!address || !(window as any).ethereum) {
-      setNetworkError("No wallet detected");
-      return;
-    }
-    (window as any).ethereum
-      .request({ method: "eth_chainId" })
-      .then((hex: string) => {
-        const chainId = parseInt(hex, 16);
-        setOnOptimism(chainId === OPTIMISM_CHAIN_ID);
-        setNetworkError(chainId === OPTIMISM_CHAIN_ID ? "" : "Please switch to Optimism");
-      })
-      .catch(() => setNetworkError("Failed to verify network"));
-  }, [address]);
-
   // Switch to Optimism network
   const switchToOptimism = async () => {
     if (!switchNetwork) {
       setNetworkError("No wallet provider detected");
-      return;
+      return false;
     }
     try {
       await switchNetwork(OPTIMISM_CHAIN_ID);
       setOnOptimism(true);
       setNetworkError("");
-    } catch (err) {
-      setNetworkError("Failed to switch to Optimism");
+      return true;
+    } catch (err: any) {
+      setNetworkError(`Failed to switch network: ${err.message || "Unknown error"}`);
       setStatus("error");
+      return false;
     }
   };
 
@@ -276,6 +300,15 @@ const MintNFT: FC = () => {
       const mojoScore = BigInt(metadata.attributes.find(attr => attr.trait_type === "Mojo Score")?.value || "0");
       const narrative = metadata.attributes.find(attr => attr.trait_type === "Narrative")?.value?.toString() || "";
 
+      const balance = await (window as any).ethereum.request({
+        method: "eth_getBalance",
+        params: [address, "latest"],
+      });
+      const balanceEth = ethers.utils.formatEther(balance);
+      if (parseFloat(balanceEth) < parseFloat(fee)) {
+        throw new Error("Insufficient ETH for mint fee");
+      }
+
       const tx = await mint({
         args: [address, tokenURI, mojoScore, narrative],
         overrides: { value: mintFee },
@@ -290,13 +323,16 @@ const MintNFT: FC = () => {
       setSelected(null);
       setShowConfirmation(false);
     } catch (err: any) {
+      console.error("Minting error:", err);
       let errorMessage = "Minting failed";
-      if (err.message?.includes("user rejected")) {
+      if (err.code === 4001 || err.message?.includes("user rejected")) {
         errorMessage = "Transaction rejected by user";
-      } else if (err.message?.includes("insufficient funds")) {
-        errorMessage = "Insufficient ETH for mint fee";
+      } else if (err.message?.includes("insufficient funds") || err.message?.includes("Insufficient ETH")) {
+        errorMessage = "Insufficient ETH for mint fee or gas";
       } else if (err.reason) {
         errorMessage = `Contract error: ${err.reason}`;
+      } else if (err.message?.includes("Internal JSON-RPC error")) {
+        errorMessage = "Network or contract error. Please try again or check Optimism network status.";
       } else if (err.message) {
         errorMessage = err.message;
       }
@@ -305,7 +341,7 @@ const MintNFT: FC = () => {
     } finally {
       setIsMinting(false);
     }
-  }, [address, onOptimism, selected, mintFee, mint, contract, buildMetadata]);
+  }, [address, onOptimism, selected, mintFee, mint, contract, buildMetadata, fee]);
 
   return (
     <div className="mint-nft-container">
@@ -323,8 +359,11 @@ const MintNFT: FC = () => {
       />
 
       {contractLoading && <p>Loading contract...</p>}
+      {contractError && (
+        <p>Error loading contract: {contractError instanceof Error ? contractError.message : "Unknown error"}</p>
+      )}
 
-      {status !== "idle" && !contractLoading && (
+      {status !== "idle" && !contractLoading && !contractError && (
         <div className={`mint-status ${status}`}>
           {status === "pending" && <p>Minting in progress...</p>}
           {status === "success" && (
@@ -343,49 +382,49 @@ const MintNFT: FC = () => {
         </div>
       )}
 
-      {status === "idle" && !contractLoading && (
+      {status === "idle" && !contractLoading && !contractError && (
         <>
           {!address && <p>Please connect your wallet</p>}
+          {networkError && <p>{networkError}</p>}
 
-          {address && !onOptimism && (
-            <div>
-              <p>{networkError}</p>
-              <button onClick={switchToOptimism}>Switch to Optimism</button>
-            </div>
-          )}
-
-          {address && onOptimism && !selected && (
-            <div className="nft-options">
-              <h3>Select an NFT (Mint Fee: {fee} ETH)</h3>
-              {Object.entries(NFT_OPTIONS).map(([key, opt]) => (
-                <div
-                  key={key}
-                  onClick={() => setSelected(key as NFTChoice)}
-                  className="nft-option"
-                >
-                  <img src={opt.image} alt={opt.name} />
-                  <h4>{opt.name}</h4>
+          {address && (
+            <>
+              {!onOptimism && (
+                <button onClick={switchToOptimism}>Switch to Optimism</button>
+              )}
+              {onOptimism && !selected && (
+                <div className="nft-options">
+                  <h3>Select an NFT (Mint Fee: {fee} ETH)</h3>
+                  {Object.entries(NFT_OPTIONS).map(([key, opt]) => (
+                    <div
+                      key={key}
+                      onClick={() => setSelected(key as NFTChoice)}
+                      className="nft-option"
+                    >
+                      <img src={opt.image} alt={opt.name} />
+                      <h4>{opt.name}</h4>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          )}
-
-          {selected && (
-            <div className="selected-nft">
-              <img
-                src={NFT_OPTIONS[selected].image}
-                alt={NFT_OPTIONS[selected].name}
-              />
-              <h4>{NFT_OPTIONS[selected].name}</h4>
-              <p>{NFT_OPTIONS[selected].description}</p>
-              <button
-                className="mint-button"
-                onClick={handleMintClick}
-                disabled={isMinting || !mintFee}
-              >
-                {isMinting ? "Minting..." : "Mint NFT"}
-              </button>
-            </div>
+              )}
+              {selected && (
+                <div className="selected-nft">
+                  <img
+                    src={NFT_OPTIONS[selected].image}
+                    alt={NFT_OPTIONS[selected].name}
+                  />
+                  <h4>{NFT_OPTIONS[selected].name}</h4>
+                  <p>{NFT_OPTIONS[selected].description}</p>
+                  <button
+                    className="mint-button"
+                    onClick={handleMintClick}
+                    disabled={isMinting || !mintFee || !onOptimism}
+                  >
+                    {isMinting ? "Minting..." : "Mint NFT"}
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </>
       )}
