@@ -162,9 +162,6 @@ const MintNFT: FC = () => {
       // Create the token URI
       const tokenURI = createMetadataURI(metadata);
 
-      // Default mint fee - 0.001 ETH
-      const fee = ethers.utils.parseEther("0.001");
-
       // Generate random mojo score (0-100)
       const mojoScore = Math.floor(Math.random() * 101);
 
@@ -175,28 +172,20 @@ const MintNFT: FC = () => {
       console.log("Minting NFT with:", {
         address,
         selectedNFT,
-        fee: fee.toString(),
         mojoScore,
         narrative,
         tokenURI
       });
 
-      // First try to read the current mint fee from the contract
-      try {
-        const currentMintFee = await contract.call("mintFee");
-        console.log("Current mint fee:", currentMintFee.toString());
-        if (currentMintFee.gt(fee)) {
-          throw new Error(`Mint fee too low. Required: ${currentMintFee.toString()}`);
-        }
-      } catch (feeError) {
-        console.warn("Could not read mint fee from contract:", feeError);
-      }
-
-      // Call the contract's mintTo function directly
+      // Call the contract's mintTo function with exact ABI parameters
       const tx = await contract.call(
         "mintTo",
-        [address, tokenURI, mojoScore, narrative],
-        { value: fee }
+        [
+          address, // to
+          tokenURI, // _tokenURI
+          mojoScore, // _mojoScore
+          narrative // _narrative
+        ]
       );
 
       console.log("Mint transaction:", tx);
