@@ -10,54 +10,10 @@ import {
 import { ethers } from "ethers";
 import { Optimism } from "@thirdweb-dev/chains";
 import "./MintNFT.css";
+import NFT_ABI from "./contractAbi.json"; // Import the ABI
 
 const NFT_CONTRACT_ADDRESS = "0x60b1Aed47EDA9f1E7E72b42A584bAEc7aFbd539B";
 const OPTIMISM_CHAIN_ID = 10;
-
-// Contract ABI
-const NFT_ABI = [
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "to",
-        "type": "address"
-      },
-      {
-        "internalType": "string",
-        "name": "tokenURI",
-        "type": "string"
-      },
-      {
-        "internalType": "uint256",
-        "name": "mojo",
-        "type": "uint256"
-      },
-      {
-        "internalType": "string",
-        "name": "narr",
-        "type": "string"
-      }
-    ],
-    "name": "mint",
-    "outputs": [],
-    "stateMutability": "payable",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "mintFee",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  }
-] as const;
 
 const NFT_OPTIONS = {
   A: {
@@ -126,15 +82,15 @@ const ConfirmationModal: FC<ConfirmationModalProps> = ({
           <p>Contract: {`${NFT_CONTRACT_ADDRESS.slice(0, 6)}...${NFT_CONTRACT_ADDRESS.slice(-4)}`}</p>
         </div>
         <div className="modal-actions">
-          <button 
-            className="confirm-button" 
+          <button
+            className="confirm-button"
             onClick={onConfirm}
             disabled={isLoading}
           >
             {isLoading ? "Confirming..." : "Confirm & Sign"}
           </button>
-          <button 
-            className="cancel-button" 
+          <button
+            className="cancel-button"
             onClick={onClose}
             disabled={isLoading}
           >
@@ -175,7 +131,7 @@ const MintNFT: FC = () => {
   // 🔄 check if we're on Optimism
   useEffect(() => {
     if (!address || !(window as any).ethereum) return;
-    ;(window as any).ethereum
+    (window as any).ethereum
       .request({ method: "eth_chainId" })
       .then((hex: string) => {
         const id = parseInt(hex, 16);
@@ -215,7 +171,7 @@ const MintNFT: FC = () => {
 
   const handleMintClick = useCallback(() => {
     if (!selected || !fee) return;
-    
+
     setShowConfirmation(true);
   }, [selected, fee]);
 
@@ -252,7 +208,6 @@ const MintNFT: FC = () => {
       const narrative = metadata.attributes.find(attr => attr.trait_type === "Narrative")?.value?.toString() || "";
 
       console.log("Minting with params:", {
-        address,
         tokenURI,
         mojoScore: mojoScoreStr,
         narrative,
@@ -260,17 +215,8 @@ const MintNFT: FC = () => {
       });
 
       const tx = await mint({
-        args: [address, tokenURI, mojoScoreStr, narrative],
+        args: [tokenURI, mojoScoreStr, narrative], // Corrected mint call
         overrides: { value: mintFee }
-      }).catch((error: any) => {
-        // Safe error logging that handles BigInt values
-        const safeError = {};
-        Object.entries(error).forEach(([key, val]) => {
-          safeError[key] = typeof val === 'bigint' ? val.toString() : val;
-        });
-        
-        console.error("Mint error details:", safeError);
-        throw error;
       });
 
       if (!tx?.receipt?.transactionHash) {
@@ -284,7 +230,7 @@ const MintNFT: FC = () => {
     } catch (err: any) {
       console.error("Mint error:", err);
       let errorMessage = "Mint failed";
-      
+
       if (err.message?.includes("CALL_EXCEPTION")) {
         errorMessage = "Transaction reverted. Please ensure you have enough ETH and the correct network.";
         if (err.reason) {
@@ -297,13 +243,13 @@ const MintNFT: FC = () => {
       } else if (err.message) {
         errorMessage = err.message;
       }
-      
+
       setErrorMsg(errorMessage);
       setStatus("error");
     } finally {
       setIsMinting(false);
     }
-  }, [address, onOpt, selected, buildMeta, mint, mintFee]);
+  }, [onOpt, selected, buildMeta, mint, mintFee]);
 
   return (
     <div className="mint-nft-container">
@@ -319,7 +265,7 @@ const MintNFT: FC = () => {
         } : null}
         isLoading={isMinting}
       />
-      
+
       {status !== "idle" ? (
         <div className={`mint-status ${status}`}>
           {status === "pending" && <p>Minting…</p>}
