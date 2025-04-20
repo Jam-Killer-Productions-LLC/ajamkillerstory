@@ -148,7 +148,7 @@ const ConfirmationModal: FC<ConfirmationModalProps> = ({
 const MintNFT: FC = () => {
   const address = useAddress();
   const [, switchNetwork] = useNetwork();
-  const { contract, isLoading: contractLoading, error: contractError } = useContract(NFT_CONTRACT_ADDRESS, NFT_ABI);
+  const { contract, isLoading: contractLoading } = useContract(NFT_CONTRACT_ADDRESS, NFT_ABI);
   const { data: mintFee } = useContractRead(contract, "mintFee");
   const { mutateAsync: mint } = useContractWrite(contract, "mint");
 
@@ -359,11 +359,8 @@ const MintNFT: FC = () => {
       />
 
       {contractLoading && <p>Loading contract...</p>}
-      {contractError && (
-        <p>Error loading contract: {contractError instanceof Error ? contractError.message : "Unknown error"}</p>
-      )}
 
-      {status !== "idle" && !contractLoading && !contractError && (
+      {status !== "idle" && !contractLoading && (
         <div className={`mint-status ${status}`}>
           {status === "pending" && <p>Minting in progress...</p>}
           {status === "success" && (
@@ -382,7 +379,7 @@ const MintNFT: FC = () => {
         </div>
       )}
 
-      {status === "idle" && !contractLoading && !contractError && (
+      {status === "idle" && !contractLoading && (
         <>
           {!address && <p>Please connect your wallet</p>}
           {networkError && <p>{networkError}</p>}
