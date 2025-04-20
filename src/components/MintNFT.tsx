@@ -64,7 +64,7 @@ const MintNFT: React.FC = () => {
       ).toString("base64")}`;
 
       await mint({
-        args: [address, tokenURI, 5, "Canoe"], // 5 = mojoScore
+        args: [address, tokenURI, 5, "Canoe"], // mojoScore = 5
         overrides: { value: BigNumber.from(mintFee) },
       });
 
