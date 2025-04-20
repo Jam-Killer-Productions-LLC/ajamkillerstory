@@ -130,9 +130,18 @@ const MintNFT: FC = () => {
       if (!metadata) throw new Error("Failed to build metadata");
       const tokenURI = createMetadataURI(metadata);
 
+      // Get the mojoScore and narrative from metadata attributes
+      const mojoScore = metadata.attributes.find(attr => attr.trait_type === "Mojo Score")?.value || 0;
+      const narrative = metadata.attributes.find(attr => attr.trait_type === "Narrative")?.value || "";
+
       const tx = await contract.call(
         "mintTo",
-        [address, tokenURI],
+        [
+          address, // to
+          tokenURI, // _tokenURI
+          mojoScore, // _mojoScore
+          narrative // _narrative
+        ],
         { value: ethers.utils.parseEther(currentMintFee), gasLimit: 300000 }
       );
 
