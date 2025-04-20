@@ -177,14 +177,29 @@ const MintNFT: FC = () => {
         selectedNFT,
         fee: fee.toString(),
         mojoScore,
-        narrative
+        narrative,
+        tokenURI
       });
+
+      // First try to read the current mint fee from the contract
+      try {
+        const currentMintFee = await contract.call("mintFee");
+        console.log("Current mint fee:", currentMintFee.toString());
+        if (currentMintFee.gt(fee)) {
+          throw new Error(`Mint fee too low. Required: ${currentMintFee.toString()}`);
+        }
+      } catch (feeError) {
+        console.warn("Could not read mint fee from contract:", feeError);
+      }
 
       // Execute mint transaction with all required parameters
       const tx = await contract.call(
         "mintTo",
         [address, tokenURI, mojoScore, narrative],
-        { value: fee }
+        { 
+          value: fee,
+          gasLimit: 500000 // Add explicit gas limit
+        }
       );
 
       console.log("Mint transaction:", tx);
@@ -202,6 +217,8 @@ const MintNFT: FC = () => {
           ? "Not enough ETH for mint"
           : msg.includes("revert")
           ? "Contract rejected transaction"
+          : msg.includes("gas")
+          ? "Transaction failed due to gas issues"
           : msg
       );
       setMintStatus("error");
