@@ -1,99 +1,35 @@
 // src/components/MintNFT.tsx
-import React, {
-  useState,
-  useEffect,
-  useCallback,
-  FC,
-} from "react";
-import {
-  useAddress,
-  useNetwork,
-  useContract,
-  useContractWrite,
-} from "@thirdweb-dev/react";
+import React, { useState, useEffect, useCallback, FC } from "react";
+import { useAddress, useNetwork, useContract, useContractWrite } from "@thirdweb-dev/react";
 import { ethers } from "ethers";
-import { awardMojoTokensService } from "../services/mojotokenservice";
 
 // Configuration
-const NFT_CONTRACT_ADDRESS =
-  "0x914B1339944D48236738424e2dBDBB72A212B2F5";
+const NFT_CONTRACT_ADDRESS = "0x914B1339944D48236738424e2dBDBB72A212B2F5";
 const OPTIMISM_CHAIN_ID = 10;
 
-// Plain HTTPS images for each path
-const IMAGE_URLS: Record<string, string> = {
-  A: "https://bafybeiakvemnjhgbgknb4luge7kayoyslnkmgqcw7xwaoqmr5l6ujnalum.ipfs.dweb.link?filename=dktjnft1.gif",
-  B: "https://bafybeiapjhb52gxhsnufm2mcrufk7d35id3lnexwftxksbcmbx5hsuzore.ipfs.dweb.link?filename=dktjnft2.gif",
-  C: "https://bafybeifoew7nyl5p5xxroo3y4lhb2fg2a6gifmd7mdav7uibi4igegehjm.ipfs.dweb.link?filename=dktjnft3.gif",
-};
-
-// Allowed narrative paths
-const allowedPaths = ["A", "B", "C"] as const;
-type NarrativePath = (typeof allowedPaths)[number];
-
-/**
- * Calculate mojo score based on narrative path
- */
-function calculateMojoScore(path: string): number {
-  switch (path) {
-    case "A":
-      return 8000;
-    case "B":
-      return 7500;
-    case "C":
-      return 8500;
-    default:
-      throw new Error("Invalid narrative path");
+// NFT Options
+const NFT_OPTIONS = {
+  A: {
+    image: "https://bafybeiakvemnjhgbgknb4luge7kayoyslnkmgqcw7xwaoqmr5l6ujnalum.ipfs.dweb.link?filename=dktjnft1.gif",
+    name: "The Noise Police Neighbor",
+    description: "Your uptight neighbor with a decibel meter and a vendetta against fun."
+  },
+  B: {
+    image: "https://bafybeiapjhb52gxhsnufm2mcrufk7d35id3lnexwftxksbcmbx5hsuzore.ipfs.dweb.link?filename=dktjnft2.gif",
+    name: "The Mean Girlfriend",
+    description: "She says your music is 'too loud' and 'embarrassing'."
+  },
+  C: {
+    image: "https://bafybeifoew7nyl5p5xxroo3y4lhb2fg2a6gifmd7mdav7uibi4igegehjm.ipfs.dweb.link?filename=dktjnft3.gif",
+    name: "The Jerk Bar Owner",
+    description: "He cut your set short for 'being too experimental'."
   }
-}
+} as const;
+
+type NFTChoice = keyof typeof NFT_OPTIONS;
 
 /**
- * Format mint fee to rough USD or fallback
- */
-function formatMintFee(fee: string | undefined): string {
-  try {
-    if (!fee || ethers.BigNumber.from(fee).eq(0)) {
-      return "$1.55";
-    }
-    const ethValue =
-      Number(ethers.BigNumber.from(fee).toString()) / 1e18;
-    return `$${(ethValue * 2000).toFixed(2)}`;
-  } catch {
-    return "$1.55";
-  }
-}
-
-/**
- * Sanitize user narrative - only filters extreme content.
- */
-function sanitizeNarrative(narrative: string): string {
-  if (!narrative) return "";
-
-  // Only filter extremely offensive words not allowed in R-rated movies
-  const extremeWords = [
-    "c*nt", // Censoring the actual spelling
-    "n*gger", // Censoring the actual spelling
-  ];
-
-  let cleaned = narrative;
-  extremeWords.forEach((word) => {
-    const regex = new RegExp(
-      `\\b${word.replace(/\*/g, "\\w")}\\b`,
-      "gi"
-    );
-    cleaned = cleaned.replace(
-      regex,
-      "*".repeat(word.length)
-    );
-  });
-
-  // Retain the full narrative if it doesn't exceed maxLength
-  const maxLength = 129; // Adjust as needed
-  const trimmed = cleaned.trim();
-  return trimmed.length > maxLength ? trimmed.slice(0, maxLength) : trimmed;
-}
-
-/**
- * Generate a unique NFT name
+ * Generate a unique NFT name based on wallet address
  */
 function generateUniqueName(address: string): string {
   if (!address) return "Anonymous";
@@ -105,86 +41,33 @@ function generateUniqueName(address: string): string {
     `Seeker ${shortAddress}`,
     `Traveler ${shortAddress}`,
   ];
-  const sumOfChars = address
-    .split("")
-    .reduce((acc, char) => acc + char.charCodeAt(0), 0);
-  const nameIndex =
-    Math.abs(sumOfChars) % nameOptions.length;
-  return `Don't Kill the Jam : Reward it with Mojo ${nameOptions[nameIndex]}`;
+  const sumOfChars = address.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  const nameIndex = Math.abs(sumOfChars) % nameOptions.length;
+  return `Don't Kill the Jam: ${nameOptions[nameIndex]}`;
 }
 
 /**
  * Create base64-encoded metadata URI for the NFT
  */
 function createMetadataURI(metadata: any): string {
-  const encodedMetadata = Buffer.from(
-    JSON.stringify(metadata)
-  ).toString("base64");
+  const encodedMetadata = Buffer.from(JSON.stringify(metadata)).toString("base64");
   return `data:application/json;base64,${encodedMetadata}`;
 }
 
-/**
- * Props for MintNFT
- */
-interface MintNFTProps {
-  narrativePath: NarrativePath;
-  userNarrative?: string;
-}
-
-/**
- * Main MintNFT Component
- */
-const MintNFT: FC<MintNFTProps> = ({
-  narrativePath,
-  userNarrative = "",
-}) => {
+const MintNFT: FC = () => {
   const address = useAddress();
   const [, switchNetwork] = useNetwork();
-
-  // Add thirdweb contract hooks.
-  // We force the payable mintTo overload by explicitly passing the full function signature.
   const { contract } = useContract(NFT_CONTRACT_ADDRESS);
-  const { mutateAsync: mintTo } = useContractWrite(
-    contract,
-    "mintTo(address,string,uint256,string)"
-  );
+  const { mutateAsync: mintTo } = useContractWrite(contract, "mintTo(address,string,uint256,string)");
 
   // Local state
+  const [selectedNFT, setSelectedNFT] = useState<NFTChoice | null>(null);
   const [isOnOptimism, setIsOnOptimism] = useState(false);
   const [networkError, setNetworkError] = useState("");
-  const [sanitizedNarrative, setSanitizedNarrative] =
-    useState("");
-  const [mintStatus, setMintStatus] = useState<
-    "idle" | "pending" | "success" | "error"
-  >("idle");
+  const [mintStatus, setMintStatus] = useState<"idle" | "pending" | "success" | "error">("idle");
   const [errorMessage, setErrorMessage] = useState("");
-  const [mojoScore, setMojoScore] = useState(0);
   const [txHash, setTxHash] = useState("");
   const [isMinting, setIsMinting] = useState(false);
-  const [mintFee, setMintFee] = useState<string>("0.001");
-  const [isMintFeeLoading, setIsMintFeeLoading] =
-    useState(false);
-
-  // Process narrative path and user narrative
-  useEffect(() => {
-    if (
-      !narrativePath ||
-      !allowedPaths.includes(narrativePath)
-    ) {
-      setErrorMessage("Invalid narrative path");
-      setMintStatus("error");
-      return;
-    }
-
-    // Set mojo score based on narrative path
-    setMojoScore(calculateMojoScore(narrativePath));
-
-    // Sanitize user narrative if provided
-    const narrative =
-      userNarrative ||
-      `Path ${narrativePath}: Default narrative for path ${narrativePath}`;
-    setSanitizedNarrative(sanitizeNarrative(narrative));
-  }, [narrativePath, userNarrative]);
 
   // Check if wallet is on Optimism
   useEffect(() => {
@@ -195,11 +78,7 @@ const MintNFT: FC<MintNFTProps> = ({
       }
 
       try {
-        const chainIdHex = await (
-          window as any
-        ).ethereum.request({
-          method: "eth_chainId",
-        });
+        const chainIdHex = await (window as any).ethereum.request({ method: "eth_chainId" });
         const chainId = parseInt(chainIdHex as string, 16);
         setIsOnOptimism(chainId === OPTIMISM_CHAIN_ID);
 
@@ -239,52 +118,32 @@ const MintNFT: FC<MintNFTProps> = ({
 
   // Create metadata for the NFT
   const createNFTMetadata = useCallback(() => {
-    if (!address) return null;
+    if (!address || !selectedNFT) return null;
 
     const metadata = {
       name: generateUniqueName(address),
-      description: `NFT minted on Optimism. User narrative: ${sanitizedNarrative}`,
-      image: IMAGE_URLS[narrativePath],
+      description: NFT_OPTIONS[selectedNFT].description,
+      image: NFT_OPTIONS[selectedNFT].image,
       attributes: [
-        { trait_type: "Mojo Score", value: mojoScore },
-        {
-          trait_type: "Narrative Path",
-          value: narrativePath,
-        },
+        { trait_type: "Jam Killer", value: NFT_OPTIONS[selectedNFT].name }
       ],
     };
 
     return metadata;
-  }, [
-    address,
-    narrativePath,
-    sanitizedNarrative,
-    mojoScore,
-  ]);
+  }, [address, selectedNFT]);
 
   // Main mint function
   const handleMint = useCallback(async () => {
-    if (
-      !address ||
-      !contract ||
-      !sanitizedNarrative ||
-      isMinting
-    ) {
+    if (!address || !contract || !selectedNFT || isMinting) {
       setErrorMessage(
         !address
           ? "Connect your wallet"
           : !contract
-            ? "Contract not loaded"
-            : !sanitizedNarrative
-              ? "Narrative cannot be empty"
-              : "Mint already in progress"
+          ? "Contract not loaded"
+          : !selectedNFT
+          ? "Select an NFT to mint"
+          : "Mint already in progress"
       );
-      setMintStatus("error");
-      return;
-    }
-
-    if (!allowedPaths.includes(narrativePath)) {
-      setErrorMessage("Invalid narrative path");
       setMintStatus("error");
       return;
     }
@@ -308,42 +167,19 @@ const MintNFT: FC<MintNFTProps> = ({
 
       console.log("Minting NFT with:", {
         address,
-        mojoScore,
-        path: narrativePath,
+        selectedNFT,
       });
 
-      // Execute mint transaction using contract.call.
-      // Wrap the parameters in an array to match the expected signature.
+      // Execute mint transaction
       const tx = await contract.call(
         "mintTo",
-        [address, tokenURI, mojoScore, sanitizedNarrative],
+        [address, tokenURI, 0, ""],
         { value: fee }
       );
 
       console.log("Mint transaction:", tx);
       setTxHash(tx.receipt.transactionHash);
       setMintStatus("success");
-
-      // Award mojo tokens after success
-      try {
-        const rewardTx = await awardMojoTokensService({
-          address,
-          mojoScore,
-          narrativePath,
-        });
-        console.log("Mojo tokens awarded:", rewardTx);
-      } catch (rewardError: any) {
-        const rMsg =
-          rewardError?.message ||
-          "Unknown error awarding tokens";
-        console.error(
-          "Error awarding tokens:",
-          rewardError
-        );
-        setErrorMessage(
-          `Mint succeeded but rewards failed: ${rMsg}`
-        );
-      }
     } catch (error: any) {
       console.error("Mint error:", error);
       const msg = error.message || "Minting failed";
@@ -351,28 +187,18 @@ const MintNFT: FC<MintNFTProps> = ({
         msg.includes("cancelled")
           ? "Transaction cancelled by user"
           : msg.includes("rejected")
-            ? "Transaction rejected by wallet"
-            : msg.includes("insufficient")
-              ? "Not enough ETH for mint"
-              : msg.includes("revert")
-                ? "Contract rejected transaction"
-                : msg.includes("Invalid narrative")
-                  ? "Invalid narrative path"
-                  : msg
+          ? "Transaction rejected by wallet"
+          : msg.includes("insufficient")
+          ? "Not enough ETH for mint"
+          : msg.includes("revert")
+          ? "Contract rejected transaction"
+          : msg
       );
       setMintStatus("error");
     } finally {
       setIsMinting(false);
     }
-  }, [
-    address,
-    contract,
-    sanitizedNarrative,
-    isMinting,
-    narrativePath,
-    mojoScore,
-    createNFTMetadata,
-  ]);
+  }, [address, contract, selectedNFT, isMinting, createNFTMetadata]);
 
   return (
     <div className="mint-nft-container">
@@ -417,41 +243,42 @@ const MintNFT: FC<MintNFTProps> = ({
         </>
       )}
 
-      {mintStatus !== "success" && mojoScore > 0 && (
-        <div>
-          <p>Mojo Score: {mojoScore}</p>
-          <p>
-            You'll receive {mojoScore} Mojo tokens after minting!
-          </p>
+      {address && isOnOptimism && !selectedNFT && (
+        <div className="nft-selection">
+          <h3>Choose Your Jam Killer!</h3>
+          <div className="nft-options">
+            {Object.entries(NFT_OPTIONS).map(([key, option]) => (
+              <div
+                key={key}
+                className="nft-option"
+                onClick={() => setSelectedNFT(key as NFTChoice)}
+              >
+                <img src={option.image} alt={option.name} />
+                <h4>{option.name}</h4>
+                <p>{option.description}</p>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
-      <button
-        onClick={handleMint}
-        disabled={
-          !address ||
-          !isOnOptimism ||
-          !sanitizedNarrative ||
-          isMinting
-        }
-        className={`mint-button ${
-          mintStatus === "success" ? "success" : ""
-        }`}
-      >
-        {mintStatus === "pending"
-          ? "Minting..."
-          : mintStatus === "success"
-          ? "Minted!"
-          : "Mint NFT"}
-      </button>
-
-      {mintStatus !== "success" && (
-        <p>
-          Mint Fee:{" "}
-          {isMintFeeLoading
-            ? "Loading fee..."
-            : formatMintFee(mintFee)}
-        </p>
+      {selectedNFT && (
+        <div className="selected-nft">
+          <img src={NFT_OPTIONS[selectedNFT].image} alt={NFT_OPTIONS[selectedNFT].name} />
+          <h4>{NFT_OPTIONS[selectedNFT].name}</h4>
+          <p>{NFT_OPTIONS[selectedNFT].description}</p>
+          <button
+            onClick={handleMint}
+            disabled={!address || !isOnOptimism || isMinting}
+            className={`mint-button ${mintStatus === "success" ? "success" : ""}`}
+          >
+            {mintStatus === "pending"
+              ? "Minting..."
+              : mintStatus === "success"
+              ? "Minted!"
+              : "Mint NFT"}
+          </button>
+        </div>
       )}
     </div>
   );
