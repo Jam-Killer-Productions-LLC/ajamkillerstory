@@ -41,10 +41,6 @@ interface NFTMetadata {
   name: string;
   description: string;
   image: string;
-  attributes: Array<{
-    trait_type: string;
-    value: string;
-  }>;
 }
 
 interface ConfirmationModalProps {
@@ -58,6 +54,7 @@ interface ConfirmationModalProps {
     fee: string;
   } | null;
   isLoading: boolean;
+  step: "approve" | "sign" | "minting";
 }
 
 // Helper function to create metadata URI
@@ -72,8 +69,34 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
   onConfirm,
   nftDetails,
   isLoading,
+  step
 }) => {
   if (!isOpen || !nftDetails) return null;
+
+  const getButtonText = () => {
+    if (isLoading) {
+      switch (step) {
+        case "approve":
+          return "Approving...";
+        case "sign":
+          return "Waiting for signature...";
+        case "minting":
+          return "Minting...";
+        default:
+          return "Processing...";
+      }
+    }
+    switch (step) {
+      case "approve":
+        return "Approve Transaction";
+      case "sign":
+        return "Sign Transaction";
+      case "minting":
+        return "Mint NFT";
+      default:
+        return "Confirm";
+    }
+  };
 
   return (
     <div className="modal-overlay">
@@ -96,7 +119,7 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
             onClick={onConfirm}
             disabled={isLoading}
           >
-            {isLoading ? "Confirming..." : "Confirm & Sign"}
+            {getButtonText()}
           </button>
           <button 
             className="cancel-button" 
@@ -128,6 +151,7 @@ const MintNFT: React.FC = () => {
   const [errorMsg, setErrorMsg] = useState("");
   const [txHash, setTxHash] = useState("");
   const [showConfirmation, setShowConfirmation] = useState(false);
+  const [mintStep, setMintStep] = useState<"approve" | "sign" | "minting">("approve");
 
   // Update fee when mintFee changes
   React.useEffect(() => {
@@ -145,19 +169,10 @@ const MintNFT: React.FC = () => {
   const buildMetadata = useCallback((): NFTMetadata | null => {
     if (!selected) return null;
     
-    const mojo = Math.floor(Math.random() * 101);
-    const narratives = ["Douche", "Canoe", "Miser"];
-    const narrative = narratives[Math.floor(Math.random() * narratives.length)];
-    
     return {
       name: `Don't Kill the Jam: ${NFT_OPTIONS[selected].name}`,
       description: NFT_OPTIONS[selected].description,
       image: NFT_OPTIONS[selected].image,
-      attributes: [
-        { trait_type: "Jam Killer", value: NFT_OPTIONS[selected].name },
-        { trait_type: "Mojo Score", value: mojo.toString() },
-        { trait_type: "Narrative", value: narrative },
-      ],
     };
   }, [selected]);
 
@@ -168,6 +183,7 @@ const MintNFT: React.FC = () => {
       setStatus("error");
       return;
     }
+    setMintStep("approve");
     setShowConfirmation(true);
   }, [selected, fee]);
 
@@ -184,31 +200,38 @@ const MintNFT: React.FC = () => {
       await switchChain(OPTIMISM_CHAIN_ID);
 
       setIsMinting(true);
-      setStatus("pending");
       setErrorMsg("");
 
-      const metadata = buildMetadata();
-      if (!metadata) {
-        throw new Error("Failed to build metadata");
+      if (mintStep === "approve") {
+        setMintStep("sign");
+        return;
       }
 
-      const tokenURI = createMetadataURI(metadata);
-      const mojoScore = metadata.attributes.find(attr => attr.trait_type === "Mojo Score")?.value || "0";
-      const narrative = metadata.attributes.find(attr => attr.trait_type === "Narrative")?.value || "";
+      if (mintStep === "sign") {
+        setMintStep("minting");
+        const metadata = buildMetadata();
+        if (!metadata) {
+          throw new Error("Failed to build metadata");
+        }
 
-      const tx = await mint({
-        args: [address, tokenURI, mojoScore, narrative],
-        overrides: { value: mintFee },
-      });
+        const tokenURI = createMetadataURI(metadata);
+        const mojoScore = BigInt(Math.floor(Math.random() * 101));
+        const narrative = "Canoe"; // Default narrative
 
-      if (!tx?.receipt?.transactionHash) {
-        throw new Error("No transaction hash returned");
+        const tx = await mint({
+          args: [address, tokenURI, mojoScore, narrative],
+          overrides: { value: mintFee },
+        });
+
+        if (!tx?.receipt?.transactionHash) {
+          throw new Error("No transaction hash returned");
+        }
+
+        setTxHash(tx.receipt.transactionHash);
+        setStatus("success");
+        setSelected(null);
+        setShowConfirmation(false);
       }
-
-      setTxHash(tx.receipt.transactionHash);
-      setStatus("success");
-      setSelected(null);
-      setShowConfirmation(false);
     } catch (err: any) {
       console.error("Minting error:", err);
       let errorMessage = "Minting failed";
@@ -225,16 +248,20 @@ const MintNFT: React.FC = () => {
       
       setErrorMsg(errorMessage);
       setStatus("error");
+      setShowConfirmation(false);
     } finally {
       setIsMinting(false);
     }
-  }, [address, selected, mintFee, mint, contract, buildMetadata, switchChain]);
+  }, [address, selected, mintFee, mint, contract, buildMetadata, switchChain, mintStep]);
 
   return (
     <div className="mint-nft-container">
       <ConfirmationModal
         isOpen={showConfirmation}
-        onClose={() => setShowConfirmation(false)}
+        onClose={() => {
+          setShowConfirmation(false);
+          setMintStep("approve");
+        }}
         onConfirm={handleConfirmMint}
         nftDetails={selected ? {
           name: NFT_OPTIONS[selected].name,
@@ -243,6 +270,7 @@ const MintNFT: React.FC = () => {
           fee
         } : null}
         isLoading={isMinting}
+        step={mintStep}
       />
 
       {status !== "idle" && (
