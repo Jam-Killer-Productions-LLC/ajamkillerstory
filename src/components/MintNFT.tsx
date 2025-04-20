@@ -30,24 +30,6 @@ const NFT_OPTIONS = {
 type NFTChoice = keyof typeof NFT_OPTIONS;
 
 /**
- * Generate a unique NFT name based on wallet address
- */
-function generateUniqueName(address: string): string {
-  if (!address) return "Anonymous";
-  const shortAddress = address.slice(-6);
-  const nameOptions = [
-    `Wanderer ${shortAddress}`,
-    `Explorer ${shortAddress}`,
-    `Voyager ${shortAddress}`,
-    `Seeker ${shortAddress}`,
-    `Traveler ${shortAddress}`,
-  ];
-  const sumOfChars = address.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
-  const nameIndex = Math.abs(sumOfChars) % nameOptions.length;
-  return `Don't Kill the Jam: ${nameOptions[nameIndex]}`;
-}
-
-/**
  * Create base64-encoded metadata URI for the NFT
  */
 function createMetadataURI(metadata: any): string {
@@ -59,7 +41,6 @@ const MintNFT: FC = () => {
   const address = useAddress();
   const [, switchNetwork] = useNetwork();
   const { contract } = useContract(NFT_CONTRACT_ADDRESS);
-  const { mutateAsync: mintTo, isLoading } = useContractWrite(contract, "mintTo");
   
   // Local state
   const [selectedNFT, setSelectedNFT] = useState<NFTChoice | null>(null);
@@ -135,10 +116,10 @@ const MintNFT: FC = () => {
 
   // Create metadata for the NFT
   const createNFTMetadata = useCallback(() => {
-    if (!address || !selectedNFT) return null;
+    if (!selectedNFT) return null;
 
     const metadata = {
-      name: generateUniqueName(address),
+      name: NFT_OPTIONS[selectedNFT].name,
       description: NFT_OPTIONS[selectedNFT].description,
       image: NFT_OPTIONS[selectedNFT].image,
       attributes: [
@@ -147,7 +128,7 @@ const MintNFT: FC = () => {
     };
 
     return metadata;
-  }, [address, selectedNFT]);
+  }, [selectedNFT]);
 
   // Main mint function
   const handleMint = useCallback(async () => {
@@ -195,19 +176,20 @@ const MintNFT: FC = () => {
         mintFee: currentMintFee
       });
 
-      // Use the contract write hook to mint
-      const tx = await mintTo({
-        args: [
+      // Call the contract directly
+      const tx = await contract.call(
+        "mintTo",
+        [
           address, // to
           tokenURI, // _tokenURI
           mojoScore, // _mojoScore
           narrative // _narrative
         ],
-        overrides: {
+        {
           value: ethers.utils.parseEther(currentMintFee), // Use current mint fee
           gasLimit: 300000
         }
-      });
+      );
 
       // Add additional validation
       if (!tx || !tx.receipt) {
@@ -255,7 +237,7 @@ const MintNFT: FC = () => {
     } finally {
       setIsMinting(false);
     }
-  }, [address, contract, selectedNFT, isMinting, createNFTMetadata, mintTo, currentMintFee]);
+  }, [address, contract, selectedNFT, isMinting, createNFTMetadata, currentMintFee]);
 
   return (
     <div className="mint-nft-container">
