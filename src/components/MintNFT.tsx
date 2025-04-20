@@ -187,12 +187,28 @@ const MintNFT: FC = () => {
           narrative // _narrative
         ],
         overrides: {
-          value: ethers.utils.parseEther("0.000777") // Mint fee in ETH
+          value: ethers.utils.parseEther("0.000777"), // Mint fee in ETH
+          gasLimit: 300000 // Add explicit gas limit
         }
       });
 
-      console.log("Mint transaction:", tx);
-      if (tx.receipt?.transactionHash) {
+      // Add additional validation
+      if (!tx || !tx.receipt) {
+        throw new Error("Transaction failed - no receipt received");
+      }
+
+      console.log("Mint transaction:", {
+        hash: tx.receipt.transactionHash,
+        status: tx.receipt.status,
+        gasUsed: tx.receipt.gasUsed,
+        blockNumber: tx.receipt.blockNumber
+      });
+
+      if (tx.receipt.status === 0) {
+        throw new Error("Transaction reverted");
+      }
+
+      if (tx.receipt.transactionHash) {
         setTxHash(tx.receipt.transactionHash);
         setMintStatus("success");
         // Reset selected NFT after successful mint
@@ -214,6 +230,8 @@ const MintNFT: FC = () => {
           ? "Contract rejected transaction"
           : msg.includes("gas")
           ? "Transaction failed due to gas issues"
+          : msg.includes("multiple")
+          ? "Transaction attempted to mint multiple NFTs"
           : msg
       );
       setMintStatus("error");
