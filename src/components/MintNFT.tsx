@@ -11,11 +11,9 @@ import { Optimism } from "@thirdweb-dev/chains";
 import { ethers } from "ethers";
 import "./MintNFT.css";
 
-// Contract configuration
 const NFT_CONTRACT_ADDRESS = "0x60b1Aed47EDA9f1E7E72b42A584bAEc7aFbd539B";
 const OPTIMISM_CHAIN_ID = 10;
 
-// NFT options with metadata
 const NFT_OPTIONS = {
   A: {
     image: "https://bafybeiakvemnjhgbgknb4luge7kayoyslnkmgqcw7xwaoqmr5l6ujnalum.ipfs.dweb.link?filename=dktjnft1.gif",
@@ -36,7 +34,6 @@ const NFT_OPTIONS = {
 
 type NFTChoice = keyof typeof NFT_OPTIONS;
 
-// Types
 interface NFTMetadata {
   name: string;
   description: string;
@@ -57,12 +54,10 @@ interface ConfirmationModalProps {
   step: "approve" | "sign" | "minting";
 }
 
-// Helper function to create metadata URI
 const createMetadataURI = (metadata: NFTMetadata): string => {
   return `data:application/json;base64,${Buffer.from(JSON.stringify(metadata)).toString("base64")}`;
 };
 
-// Confirmation Modal Component
 const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
   isOpen,
   onClose,
@@ -134,16 +129,13 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
   );
 };
 
-// Main MintNFT Component
 const MintNFT: React.FC = () => {
-  // ThirdWeb hooks
   const address = useAddress();
   const { contract } = useContract(NFT_CONTRACT_ADDRESS);
   const { data: mintFee } = useContractRead(contract, "mintFee");
   const { mutateAsync: mint } = useContractWrite(contract, "mint");
   const switchChain = useSwitchChain();
 
-  // State management
   const [selected, setSelected] = useState<NFTChoice | null>(null);
   const [fee, setFee] = useState<string>("0");
   const [isMinting, setIsMinting] = useState(false);
@@ -153,7 +145,6 @@ const MintNFT: React.FC = () => {
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [mintStep, setMintStep] = useState<"approve" | "sign" | "minting">("approve");
 
-  // Update fee when mintFee changes
   React.useEffect(() => {
     if (mintFee) {
       try {
@@ -165,7 +156,6 @@ const MintNFT: React.FC = () => {
     }
   }, [mintFee]);
 
-  // Build NFT metadata
   const buildMetadata = useCallback((): NFTMetadata | null => {
     if (!selected) return null;
     
@@ -176,7 +166,6 @@ const MintNFT: React.FC = () => {
     };
   }, [selected]);
 
-  // Handle mint button click
   const handleMintClick = useCallback(() => {
     if (!selected || !fee) {
       setErrorMsg("Select an NFT and ensure fee is loaded");
@@ -187,7 +176,6 @@ const MintNFT: React.FC = () => {
     setShowConfirmation(true);
   }, [selected, fee]);
 
-  // Handle confirmed mint action
   const handleConfirmMint = useCallback(async () => {
     if (!contract || !address || !selected || !mintFee) {
       setErrorMsg("Missing required data for minting");
@@ -196,7 +184,6 @@ const MintNFT: React.FC = () => {
     }
 
     try {
-      // Switch to Optimism if needed
       await switchChain(OPTIMISM_CHAIN_ID);
 
       setIsMinting(true);
@@ -215,7 +202,7 @@ const MintNFT: React.FC = () => {
         }
 
         const tokenURI = createMetadataURI(metadata);
-        const mojoScore = 5; // Fixed value between 1-10
+        const mojoScore = 5;
         const narrative = "Canoe";
 
         const tx = await mint({
