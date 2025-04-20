@@ -87,6 +87,64 @@ function createMetadataURI(meta: any): string {
   );
 }
 
+interface ConfirmationModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  nftDetails: {
+    name: string;
+    description: string;
+    image: string;
+    fee: string;
+  } | null;
+  isLoading: boolean;
+}
+
+const ConfirmationModal: FC<ConfirmationModalProps> = ({
+  isOpen,
+  onClose,
+  onConfirm,
+  nftDetails,
+  isLoading
+}) => {
+  if (!isOpen || !nftDetails) return null;
+
+  return (
+    <div className="modal-overlay">
+      <div className="modal-content">
+        <h3>Confirm NFT Mint</h3>
+        <div className="nft-preview">
+          <img src={nftDetails.image} alt={nftDetails.name} className="preview-image" />
+          <h4>{nftDetails.name}</h4>
+          <p>{nftDetails.description}</p>
+        </div>
+        <div className="transaction-details">
+          <h4>Transaction Details</h4>
+          <p>Mint Fee: {nftDetails.fee} ETH</p>
+          <p>Network: Optimism</p>
+          <p>Contract: {`${NFT_CONTRACT_ADDRESS.slice(0, 6)}...${NFT_CONTRACT_ADDRESS.slice(-4)}`}</p>
+        </div>
+        <div className="modal-actions">
+          <button 
+            className="confirm-button" 
+            onClick={onConfirm}
+            disabled={isLoading}
+          >
+            {isLoading ? "Confirming..." : "Confirm & Sign"}
+          </button>
+          <button 
+            className="cancel-button" 
+            onClick={onClose}
+            disabled={isLoading}
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const MintNFT: FC = () => {
   const address = useAddress();
   const [, switchNetwork] = useNetwork();
@@ -104,6 +162,7 @@ const MintNFT: FC = () => {
   const [txHash, setTxHash] = useState("");
   const [onOpt, setOnOpt] = useState(false);
   const [netErr, setNetErr] = useState("");
+  const [showConfirmation, setShowConfirmation] = useState(false);
 
   // Update fee when mintFee changes
   useEffect(() => {
@@ -153,7 +212,13 @@ const MintNFT: FC = () => {
     };
   }, [selected]);
 
-  const handleMint = useCallback(async () => {
+  const handleMintClick = useCallback(() => {
+    if (!selected || !fee) return;
+    
+    setShowConfirmation(true);
+  }, [selected, fee]);
+
+  const handleConfirmMint = useCallback(async () => {
     if (!address) {
       setErrorMsg("Connect your wallet");
       return setStatus("error");
@@ -165,6 +230,10 @@ const MintNFT: FC = () => {
     }
     if (!selected) {
       setErrorMsg("Select an NFT to mint");
+      return setStatus("error");
+    }
+    if (!mintFee) {
+      setErrorMsg("Mint fee not loaded");
       return setStatus("error");
     }
 
@@ -182,7 +251,7 @@ const MintNFT: FC = () => {
 
       const tx = await mint({
         args: [address, tokenURI, mojoScore.toString(), narrative],
-        overrides: { value: ethers.utils.parseEther(fee).toString() }
+        overrides: { value: mintFee.toString() }
       });
 
       if (!tx?.receipt?.transactionHash) {
@@ -192,6 +261,7 @@ const MintNFT: FC = () => {
       setTxHash(tx.receipt.transactionHash);
       setStatus("success");
       setSelected(null);
+      setShowConfirmation(false);
     } catch (err: any) {
       console.error(err);
       setErrorMsg(err.message || "Mint failed");
@@ -199,10 +269,23 @@ const MintNFT: FC = () => {
     } finally {
       setIsMinting(false);
     }
-  }, [address, onOpt, selected, buildMeta, mint, fee]);
+  }, [address, onOpt, selected, buildMeta, mint, mintFee]);
 
   return (
     <div className="mint-nft-container">
+      <ConfirmationModal
+        isOpen={showConfirmation}
+        onClose={() => setShowConfirmation(false)}
+        onConfirm={handleConfirmMint}
+        nftDetails={selected ? {
+          name: NFT_OPTIONS[selected].name,
+          description: NFT_OPTIONS[selected].description,
+          image: NFT_OPTIONS[selected].image,
+          fee
+        } : null}
+        isLoading={isMinting}
+      />
+      
       {status !== "idle" ? (
         <div className={`mint-status ${status}`}>
           {status === "pending" && <p>Minting…</p>}
@@ -258,7 +341,7 @@ const MintNFT: FC = () => {
               <p>{NFT_OPTIONS[selected].description}</p>
               <button
                 className="mint-button"
-                onClick={handleMint}
+                onClick={handleMintClick}
                 disabled={isMinting}
               >
                 {isMinting ? "Minting…" : "Mint NFT"}
@@ -270,5 +353,98 @@ const MintNFT: FC = () => {
     </div>
   );
 };
+
+// Add styles for the modal
+const styles = document.createElement('style');
+styles.textContent = `
+  .modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.75);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+  }
+
+  .modal-content {
+    background: #1a1a1a;
+    padding: 2rem;
+    border-radius: 12px;
+    max-width: 500px;
+    width: 90%;
+    color: white;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  }
+
+  .nft-preview {
+    text-align: center;
+    margin: 1rem 0;
+  }
+
+  .preview-image {
+    max-width: 200px;
+    border-radius: 8px;
+    margin: 1rem 0;
+  }
+
+  .transaction-details {
+    background: rgba(255, 255, 255, 0.05);
+    padding: 1rem;
+    border-radius: 8px;
+    margin: 1rem 0;
+  }
+
+  .modal-actions {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1.5rem;
+  }
+
+  .confirm-button, .cancel-button {
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    border: none;
+    font-weight: bold;
+    cursor: pointer;
+    flex: 1;
+    transition: all 0.2s;
+  }
+
+  .confirm-button {
+    background: #4CAF50;
+    color: white;
+  }
+
+  .confirm-button:hover {
+    background: #45a049;
+  }
+
+  .confirm-button:disabled {
+    background: #45a049;
+    opacity: 0.7;
+    cursor: not-allowed;
+  }
+
+  .cancel-button {
+    background: #f44336;
+    color: white;
+  }
+
+  .cancel-button:hover {
+    background: #da190b;
+  }
+
+  .cancel-button:disabled {
+    background: #da190b;
+    opacity: 0.7;
+    cursor: not-allowed;
+  }
+`;
+
+document.head.appendChild(styles);
 
 export default MintNFT;
