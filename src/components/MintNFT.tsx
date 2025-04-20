@@ -1,90 +1,50 @@
-import React, { useState, useEffect, useCallback, FC } from "react";
+import React, { useState, useCallback } from "react";
 import {
   useAddress,
   useNetwork,
   useContract,
   useContractRead,
   useContractWrite,
+  useSwitchChain,
 } from "@thirdweb-dev/react";
-import { ethers } from "ethers";
 import { Optimism } from "@thirdweb-dev/chains";
+import { ethers } from "ethers";
 import "./MintNFT.css";
 
+// Contract configuration
 const NFT_CONTRACT_ADDRESS = "0x60b1Aed47EDA9f1E7E72b42A584bAEc7aFbd539B";
 const OPTIMISM_CHAIN_ID = 10;
 
-// Minimal ABI for minting
-const NFT_ABI = [
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "to",
-        "type": "address"
-      },
-      {
-        "internalType": "string",
-        "name": "tokenURI",
-        "type": "string"
-      },
-      {
-        "internalType": "uint256",
-        "name": "mojo",
-        "type": "uint256"
-      },
-      {
-        "internalType": "string",
-        "name": "narr",
-        "type": "string"
-      }
-    ],
-    "name": "mint",
-    "outputs": [],
-    "stateMutability": "payable",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "mintFee",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  }
-] as const;
-
+// NFT options with metadata
 const NFT_OPTIONS = {
   A: {
-    image:
-      "https://bafybeiakvemnjhgbgknb4luge7kayoyslnkmgqcw7xwaoqmr5l6ujnalum.ipfs.dweb.link?filename=dktjnft1.gif",
+    image: "https://bafybeiakvemnjhgbgknb4luge7kayoyslnkmgqcw7xwaoqmr5l6ujnalum.ipfs.dweb.link?filename=dktjnft1.gif",
     name: "The Noise Police Neighbor",
     description: "Your uptight neighbor with a decibel meter and a vendetta against fun.",
   },
   B: {
-    image:
-      "https://bafybeiapjhb52gxhsnufm2mcrufk7d35id3lnexwftxksbcmbx5hsuzore.ipfs.dweb.link?filename=dktjnft2.gif",
+    image: "https://bafybeiapjhb52gxhsnufm2mcrufk7d35id3lnexwftxksbcmbx5hsuzore.ipfs.dweb.link?filename=dktjnft2.gif",
     name: "The Mean Girlfriend",
     description: "She says your music is 'too loud' and 'embarrassing'.",
   },
   C: {
-    image:
-      "https://bafybeifoew7nyl5p5xxroo3y4lhb2fg2a6gifmd7mdav7uibi4igegehjm.ipfs.dweb.link?filename=dktjnft3.gif",
+    image: "https://bafybeifoew7nyl5p5xxroo3y4lhb2fg2a6gifmd7mdav7uibi4igegehjm.ipfs.dweb.link?filename=dktjnft3.gif",
     name: "The Jerk Bar Owner",
     description: "He cut your set short for 'being too experimental'.",
   },
 } as const;
+
 type NFTChoice = keyof typeof NFT_OPTIONS;
 
-function createMetadataURI(meta: any): string {
-  return (
-    "data:application/json;base64," +
-    Buffer.from(JSON.stringify(meta)).toString("base64")
-  );
+// Types
+interface NFTMetadata {
+  name: string;
+  description: string;
+  image: string;
+  attributes: Array<{
+    trait_type: string;
+    value: string;
+  }>;
 }
 
 interface ConfirmationModalProps {
@@ -100,12 +60,18 @@ interface ConfirmationModalProps {
   isLoading: boolean;
 }
 
-const ConfirmationModal: FC<ConfirmationModalProps> = ({
+// Helper function to create metadata URI
+const createMetadataURI = (metadata: NFTMetadata): string => {
+  return `data:application/json;base64,${Buffer.from(JSON.stringify(metadata)).toString("base64")}`;
+};
+
+// Confirmation Modal Component
+const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
   isOpen,
   onClose,
   onConfirm,
   nftDetails,
-  isLoading
+  isLoading,
 }) => {
   if (!isOpen || !nftDetails) return null;
 
@@ -145,97 +111,44 @@ const ConfirmationModal: FC<ConfirmationModalProps> = ({
   );
 };
 
-const MintNFT: FC = () => {
+// Main MintNFT Component
+const MintNFT: React.FC = () => {
+  // ThirdWeb hooks
   const address = useAddress();
-  const [, switchNetwork] = useNetwork();
-  const { contract, isLoading: contractLoading } = useContract(NFT_CONTRACT_ADDRESS, NFT_ABI);
+  const { contract } = useContract(NFT_CONTRACT_ADDRESS);
   const { data: mintFee } = useContractRead(contract, "mintFee");
   const { mutateAsync: mint } = useContractWrite(contract, "mint");
+  const switchChain = useSwitchChain();
 
+  // State management
   const [selected, setSelected] = useState<NFTChoice | null>(null);
   const [fee, setFee] = useState<string>("0");
   const [isMinting, setIsMinting] = useState(false);
   const [status, setStatus] = useState<"idle" | "pending" | "success" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState("");
   const [txHash, setTxHash] = useState("");
-  const [onOptimism, setOnOptimism] = useState(false);
-  const [networkError, setNetworkError] = useState("");
   const [showConfirmation, setShowConfirmation] = useState(false);
 
-  // Detect and prioritize MetaMask provider
-  useEffect(() => {
-    const detectProvider = () => {
-      const { ethereum } = window as any;
-      if (!ethereum) {
-        setNetworkError("No wallet provider detected. Please install MetaMask.");
-        return;
-      }
-      // Prioritize MetaMask if multiple providers are present
-      if (ethereum.providers) {
-        const metaMaskProvider = ethereum.providers.find((p: any) => p.isMetaMask);
-        if (metaMaskProvider) {
-          (window as any).ethereum = metaMaskProvider;
-        } else {
-          setNetworkError("Multiple wallet providers detected. Please disable other wallets and keep MetaMask.");
-        }
-      } else if (!ethereum.isMetaMask) {
-        setNetworkError("Non-MetaMask provider detected. Please use MetaMask.");
-      }
-    };
-    detectProvider();
-  }, []);
-
-  // Check network and update fee
-  useEffect(() => {
-    if (!address || !(window as any).ethereum) return;
-    const checkNetwork = async () => {
-      try {
-        const chainId = parseInt(await (window as any).ethereum.request({ method: "eth_chainId" }), 16);
-        setOnOptimism(chainId === OPTIMISM_CHAIN_ID);
-        setNetworkError(chainId === OPTIMISM_CHAIN_ID ? "" : "Please switch to Optimism network");
-      } catch {
-        setNetworkError("Failed to verify network");
-      }
-    };
-    checkNetwork();
-  }, [address]);
-
   // Update fee when mintFee changes
-  useEffect(() => {
+  React.useEffect(() => {
     if (mintFee) {
       try {
         setFee(ethers.utils.formatEther(mintFee));
-      } catch {
+      } catch (error) {
         setErrorMsg("Failed to parse mint fee");
         setStatus("error");
       }
     }
   }, [mintFee]);
 
-  // Switch to Optimism network
-  const switchToOptimism = async () => {
-    if (!switchNetwork) {
-      setNetworkError("No wallet provider detected");
-      return false;
-    }
-    try {
-      await switchNetwork(OPTIMISM_CHAIN_ID);
-      setOnOptimism(true);
-      setNetworkError("");
-      return true;
-    } catch (err: any) {
-      setNetworkError(`Failed to switch network: ${err.message || "Unknown error"}`);
-      setStatus("error");
-      return false;
-    }
-  };
-
   // Build NFT metadata
-  const buildMetadata = useCallback(() => {
+  const buildMetadata = useCallback((): NFTMetadata | null => {
     if (!selected) return null;
+    
     const mojo = Math.floor(Math.random() * 101);
     const narratives = ["Douche", "Canoe", "Miser"];
     const narrative = narratives[Math.floor(Math.random() * narratives.length)];
+    
     return {
       name: `Don't Kill the Jam: ${NFT_OPTIONS[selected].name}`,
       description: NFT_OPTIONS[selected].description,
@@ -260,54 +173,28 @@ const MintNFT: FC = () => {
 
   // Handle confirmed mint action
   const handleConfirmMint = useCallback(async () => {
-    if (!contract) {
-      setErrorMsg("Contract not initialized");
+    if (!contract || !address || !selected || !mintFee) {
+      setErrorMsg("Missing required data for minting");
       setStatus("error");
       return;
     }
-    if (!address) {
-      setErrorMsg("Please connect your wallet");
-      setStatus("error");
-      return;
-    }
-    if (!onOptimism) {
-      setErrorMsg("Please switch to Optimism network");
-      setStatus("error");
-      await switchToOptimism();
-      return;
-    }
-    if (!selected) {
-      setErrorMsg("No NFT selected");
-      setStatus("error");
-      return;
-    }
-    if (!mintFee) {
-      setErrorMsg("Mint fee not loaded");
-      setStatus("error");
-      return;
-    }
-
-    setIsMinting(true);
-    setStatus("pending");
-    setErrorMsg("");
 
     try {
+      // Switch to Optimism if needed
+      await switchChain(OPTIMISM_CHAIN_ID);
+
+      setIsMinting(true);
+      setStatus("pending");
+      setErrorMsg("");
+
       const metadata = buildMetadata();
       if (!metadata) {
         throw new Error("Failed to build metadata");
       }
+
       const tokenURI = createMetadataURI(metadata);
       const mojoScore = BigInt(metadata.attributes.find(attr => attr.trait_type === "Mojo Score")?.value || "0");
-      const narrative = metadata.attributes.find(attr => attr.trait_type === "Narrative")?.value?.toString() || "";
-
-      const balance = await (window as any).ethereum.request({
-        method: "eth_getBalance",
-        params: [address, "latest"],
-      });
-      const balanceEth = ethers.utils.formatEther(balance);
-      if (parseFloat(balanceEth) < parseFloat(fee)) {
-        throw new Error("Insufficient ETH for mint fee");
-      }
+      const narrative = metadata.attributes.find(attr => attr.trait_type === "Narrative")?.value || "";
 
       const tx = await mint({
         args: [address, tokenURI, mojoScore, narrative],
@@ -325,23 +212,23 @@ const MintNFT: FC = () => {
     } catch (err: any) {
       console.error("Minting error:", err);
       let errorMessage = "Minting failed";
+      
       if (err.code === 4001 || err.message?.includes("user rejected")) {
         errorMessage = "Transaction rejected by user";
-      } else if (err.message?.includes("insufficient funds") || err.message?.includes("Insufficient ETH")) {
+      } else if (err.message?.includes("insufficient funds")) {
         errorMessage = "Insufficient ETH for mint fee or gas";
       } else if (err.reason) {
         errorMessage = `Contract error: ${err.reason}`;
-      } else if (err.message?.includes("Internal JSON-RPC error")) {
-        errorMessage = "Network or contract error. Please try again or check Optimism network status.";
       } else if (err.message) {
         errorMessage = err.message;
       }
+      
       setErrorMsg(errorMessage);
       setStatus("error");
     } finally {
       setIsMinting(false);
     }
-  }, [address, onOptimism, selected, mintFee, mint, contract, buildMetadata, fee]);
+  }, [address, selected, mintFee, mint, contract, buildMetadata, switchChain]);
 
   return (
     <div className="mint-nft-container">
@@ -358,9 +245,7 @@ const MintNFT: FC = () => {
         isLoading={isMinting}
       />
 
-      {contractLoading && <p>Loading contract...</p>}
-
-      {status !== "idle" && !contractLoading && (
+      {status !== "idle" && (
         <div className={`mint-status ${status}`}>
           {status === "pending" && <p>Minting in progress...</p>}
           {status === "success" && (
@@ -379,49 +264,39 @@ const MintNFT: FC = () => {
         </div>
       )}
 
-      {status === "idle" && !contractLoading && (
+      {status === "idle" && (
         <>
-          {!address && <p>Please connect your wallet</p>}
-          {networkError && <p>{networkError}</p>}
-
-          {address && (
-            <>
-              {!onOptimism && (
-                <button onClick={switchToOptimism}>Switch to Optimism</button>
-              )}
-              {onOptimism && !selected && (
-                <div className="nft-options">
-                  <h3>Select an NFT (Mint Fee: {fee} ETH)</h3>
-                  {Object.entries(NFT_OPTIONS).map(([key, opt]) => (
-                    <div
-                      key={key}
-                      onClick={() => setSelected(key as NFTChoice)}
-                      className="nft-option"
-                    >
-                      <img src={opt.image} alt={opt.name} />
-                      <h4>{opt.name}</h4>
-                    </div>
-                  ))}
+          {!selected && (
+            <div className="nft-options">
+              <h3>Select an NFT (Mint Fee: {fee} ETH)</h3>
+              {Object.entries(NFT_OPTIONS).map(([key, opt]) => (
+                <div
+                  key={key}
+                  onClick={() => setSelected(key as NFTChoice)}
+                  className="nft-option"
+                >
+                  <img src={opt.image} alt={opt.name} />
+                  <h4>{opt.name}</h4>
                 </div>
-              )}
-              {selected && (
-                <div className="selected-nft">
-                  <img
-                    src={NFT_OPTIONS[selected].image}
-                    alt={NFT_OPTIONS[selected].name}
-                  />
-                  <h4>{NFT_OPTIONS[selected].name}</h4>
-                  <p>{NFT_OPTIONS[selected].description}</p>
-                  <button
-                    className="mint-button"
-                    onClick={handleMintClick}
-                    disabled={isMinting || !mintFee || !onOptimism}
-                  >
-                    {isMinting ? "Minting..." : "Mint NFT"}
-                  </button>
-                </div>
-              )}
-            </>
+              ))}
+            </div>
+          )}
+          {selected && (
+            <div className="selected-nft">
+              <img
+                src={NFT_OPTIONS[selected].image}
+                alt={NFT_OPTIONS[selected].name}
+              />
+              <h4>{NFT_OPTIONS[selected].name}</h4>
+              <p>{NFT_OPTIONS[selected].description}</p>
+              <button
+                className="mint-button"
+                onClick={handleMintClick}
+                disabled={isMinting || !mintFee}
+              >
+                {isMinting ? "Minting..." : "Mint NFT"}
+              </button>
+            </div>
           )}
         </>
       )}
