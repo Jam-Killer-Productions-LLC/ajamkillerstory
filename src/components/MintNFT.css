@@ -4,83 +4,153 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(0, 0, 0, 0.75);
+  background-color: rgba(0, 0, 0, 0.85);
   display: flex;
   justify-content: center;
   align-items: center;
   z-index: 1000;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 
 .modal-content {
-  background: #1a1a1a;
-  padding: 2rem;
-  border-radius: 12px;
+  background: linear-gradient(145deg, #1a1a1a, #2a2a2a);
+  padding: 2.5rem;
+  border-radius: 16px;
   max-width: 500px;
   width: 90%;
-  color: white;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  color: #ffffff;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.modal-content h3 {
+  font-size: 1.5rem;
+  margin-bottom: 1.5rem;
+  color: #ffffff;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 1px;
 }
 
 .nft-preview {
   text-align: center;
-  margin: 1rem 0;
+  margin: 1.5rem 0;
 }
 
 .preview-image {
-  max-width: 200px;
-  border-radius: 8px;
+  max-width: 240px;
+  border-radius: 12px;
   margin: 1rem 0;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.nft-preview h4 {
+  font-size: 1.2rem;
+  margin: 1rem 0 0.5rem;
+  color: #ffffff;
+}
+
+.nft-preview p {
+  color: #b3b3b3;
+  font-size: 0.9rem;
+  line-height: 1.4;
 }
 
 .transaction-details {
-  background: rgba(255, 255, 255, 0.05);
-  padding: 1rem;
-  border-radius: 8px;
-  margin: 1rem 0;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 1.25rem;
+  border-radius: 12px;
+  margin: 1.5rem 0;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.transaction-details h4 {
+  font-size: 1rem;
+  margin-bottom: 1rem;
+  color: #ffffff;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.transaction-details p {
+  color: #b3b3b3;
+  margin: 0.5rem 0;
+  font-size: 0.9rem;
 }
 
 .modal-actions {
   display: flex;
   gap: 1rem;
-  margin-top: 1.5rem;
+  margin-top: 2rem;
 }
 
 .confirm-button, .cancel-button {
-  padding: 0.75rem 1.5rem;
-  border-radius: 8px;
+  padding: 0.875rem 1.75rem;
+  border-radius: 12px;
   border: none;
-  font-weight: bold;
+  font-weight: 600;
   cursor: pointer;
   flex: 1;
-  transition: all 0.2s;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-size: 0.9rem;
+  position: relative;
+  overflow: hidden;
 }
 
 .confirm-button {
-  background: #4CAF50;
-  color: white;
+  background: linear-gradient(145deg, #2a2a2a, #1a1a1a);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.confirm-button:hover {
-  background: #45a049;
+.confirm-button:hover:not(:disabled) {
+  background: linear-gradient(145deg, #3a3a3a, #2a2a2a);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 .confirm-button:disabled {
-  background: #45a049;
-  opacity: 0.7;
+  opacity: 0.5;
   cursor: not-allowed;
 }
 
 .cancel-button {
-  background: #f44336;
-  color: white;
+  background: linear-gradient(145deg, #1a1a1a, #2a2a2a);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.cancel-button:hover {
-  background: #da190b;
+.cancel-button:hover:not(:disabled) {
+  background: linear-gradient(145deg, #2a2a2a, #1a1a1a);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 .cancel-button:disabled {
-  background: #da190b;
-  opacity: 0.7;
+  opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* Add a subtle glow effect on hover */
+.confirm-button:hover:not(:disabled)::after,
+.cancel-button:hover:not(:disabled)::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border-radius: 12px;
+  box-shadow: 0 0 15px rgba(255, 255, 255, 0.1);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.confirm-button:hover:not(:disabled)::after,
+.cancel-button:hover:not(:disabled)::after {
+  opacity: 1;
 } 
