@@ -60,7 +60,7 @@ const MintNFT: FC = () => {
   const [, switchNetwork] = useNetwork();
   const { contract } = useContract(NFT_CONTRACT_ADDRESS);
   const { mutateAsync: mintTo, isLoading } = useContractWrite(contract, "mintTo");
-
+  
   // Local state
   const [selectedNFT, setSelectedNFT] = useState<NFTChoice | null>(null);
   const [isOnOptimism, setIsOnOptimism] = useState(false);
@@ -69,6 +69,22 @@ const MintNFT: FC = () => {
   const [errorMessage, setErrorMessage] = useState("");
   const [txHash, setTxHash] = useState("");
   const [isMinting, setIsMinting] = useState(false);
+  const [currentMintFee, setCurrentMintFee] = useState<string>("0");
+
+  // Get current mint fee
+  useEffect(() => {
+    const getMintFee = async () => {
+      if (contract) {
+        try {
+          const fee = await contract.call("mintFee");
+          setCurrentMintFee(ethers.utils.formatEther(fee));
+        } catch (error) {
+          console.error("Error getting mint fee:", error);
+        }
+      }
+    };
+    getMintFee();
+  }, [contract]);
 
   // Check if wallet is on Optimism
   useEffect(() => {
@@ -175,7 +191,8 @@ const MintNFT: FC = () => {
         selectedNFT,
         mojoScore,
         narrative,
-        tokenURI
+        tokenURI,
+        mintFee: currentMintFee
       });
 
       // Use the contract write hook to mint
@@ -187,8 +204,8 @@ const MintNFT: FC = () => {
           narrative // _narrative
         ],
         overrides: {
-          value: ethers.utils.parseEther("0.000777"), // Mint fee in ETH
-          gasLimit: 300000 // Add explicit gas limit
+          value: ethers.utils.parseEther(currentMintFee), // Use current mint fee
+          gasLimit: 300000
         }
       });
 
@@ -225,7 +242,7 @@ const MintNFT: FC = () => {
           : msg.includes("rejected")
           ? "Transaction rejected by wallet"
           : msg.includes("insufficient")
-          ? "Not enough ETH for mint"
+          ? `Not enough ETH for mint (fee: ${currentMintFee} ETH)`
           : msg.includes("revert")
           ? "Contract rejected transaction"
           : msg.includes("gas")
@@ -238,7 +255,7 @@ const MintNFT: FC = () => {
     } finally {
       setIsMinting(false);
     }
-  }, [address, contract, selectedNFT, isMinting, createNFTMetadata, mintTo]);
+  }, [address, contract, selectedNFT, isMinting, createNFTMetadata, mintTo, currentMintFee]);
 
   return (
     <div className="mint-nft-container">
@@ -286,6 +303,7 @@ const MintNFT: FC = () => {
       {address && isOnOptimism && !selectedNFT && (
         <div className="nft-selection">
           <h3>Choose Your Jam Killer!</h3>
+          <p>Mint Fee: {currentMintFee} ETH</p>
           <div className="nft-options">
             {Object.entries(NFT_OPTIONS).map(([key, option]) => (
               <div
@@ -307,6 +325,7 @@ const MintNFT: FC = () => {
           <img src={NFT_OPTIONS[selectedNFT].image} alt={NFT_OPTIONS[selectedNFT].name} />
           <h4>{NFT_OPTIONS[selectedNFT].name}</h4>
           <p>{NFT_OPTIONS[selectedNFT].description}</p>
+          <p>Mint Fee: {currentMintFee} ETH</p>
           <button
             onClick={handleMint}
             disabled={!address || !isOnOptimism || isMinting}
