@@ -185,7 +185,10 @@ const MintNFT: FC = () => {
           tokenURI, // _tokenURI
           mojoScore, // _mojoScore
           narrative // _narrative
-        ]
+        ],
+        {
+          value: ethers.utils.parseEther("0.000777") // Mint fee in ETH
+        }
       );
 
       console.log("Mint transaction:", tx);
