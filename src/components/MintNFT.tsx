@@ -147,7 +147,7 @@ const MintNFT: FC = () => {
       image: NFT_OPTIONS[selected].image,
       attributes: [
         { trait_type: "Jam Killer", value: NFT_OPTIONS[selected].name },
-        { trait_type: "Mojo Score", value: mojo },
+        { trait_type: "Mojo Score", value: mojo.toString() },
         { trait_type: "Narrative", value: narr },
       ],
     };
@@ -177,12 +177,12 @@ const MintNFT: FC = () => {
       if (!metadata) throw new Error("Failed to build metadata");
       const tokenURI = createMetadataURI(metadata);
 
-      const mojoScore = BigInt(metadata.attributes.find(attr => attr.trait_type === "Mojo Score")?.value || 0);
+      const mojoScore = BigInt(metadata.attributes.find(attr => attr.trait_type === "Mojo Score")?.value || "0");
       const narrative = metadata.attributes.find(attr => attr.trait_type === "Narrative")?.value?.toString() || "";
 
       const tx = await mint({
-        args: [address, tokenURI, mojoScore, narrative],
-        overrides: { value: ethers.utils.parseEther(fee) }
+        args: [address, tokenURI, mojoScore.toString(), narrative],
+        overrides: { value: ethers.utils.parseEther(fee).toString() }
       });
 
       if (!tx?.receipt?.transactionHash) {
