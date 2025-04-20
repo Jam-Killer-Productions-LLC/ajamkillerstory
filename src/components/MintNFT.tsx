@@ -32,7 +32,13 @@ type NFTChoice = keyof typeof NFT_OPTIONS;
 const MintNFT: React.FC = () => {
   const address = useAddress();
   const { contract } = useContract(NFT_CONTRACT_ADDRESS);
-  const { mutateAsync: mint } = useContractWrite(contract, "mint");
+
+  // Use the fully-qualified mint overload to avoid calling the single-arg quantity mint
+  const { mutateAsync: mint } = useContractWrite(
+    contract,
+    "mint(address,string,uint256,string)"
+  );
+
   const { data: mintFee } = useContractRead(contract, "mintFee");
 
   const [selected, setSelected] = useState<NFTChoice | null>(null);
@@ -52,13 +58,15 @@ const MintNFT: React.FC = () => {
         image: NFT_OPTIONS[selected].image,
       };
 
-      const tokenURI = `data:application/json;base64,${Buffer.from(JSON.stringify(metadata)).toString("base64")}`;
+      const tokenURI = `data:application/json;base64,${Buffer.from(
+        JSON.stringify(metadata)
+      ).toString("base64")}`;
       const mojoScore = 5;
       const narrative = "Canoe";
 
       await mint({
         args: [address, tokenURI, mojoScore, narrative],
-        overrides: { value: mintFee }
+        overrides: { value: mintFee },
       });
 
       setSelected(null);
@@ -72,7 +80,7 @@ const MintNFT: React.FC = () => {
   return (
     <div className="mint-nft-container">
       {error && <div className="error-message">{error}</div>}
-      
+
       {!selected ? (
         <div className="nft-options">
           <h3>Select an NFT</h3>
