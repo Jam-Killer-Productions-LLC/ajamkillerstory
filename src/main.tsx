@@ -5,15 +5,10 @@ import App from "./App";
 import { ThirdwebProvider } from "@thirdweb-dev/react";
 import { Optimism } from "@thirdweb-dev/chains";
 
-// ThirdWeb credentials
-const clientId = import.meta.env.VITE_THIRDWEB_CLIENT_ID;
-const secretKey = import.meta.env.VITE_THIRDWEB_SECRET_KEY;
-
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <ThirdwebProvider 
-      clientId={clientId}
-      secretKey={secretKey}
+      clientId="e24d90c806dc62cef0745af3ddd76314"
       activeChain="optimism"
       supportedChains={[Optimism]}
     >
