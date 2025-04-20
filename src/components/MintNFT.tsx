@@ -10,7 +10,7 @@ import {
 import { ethers } from "ethers";
 import { Optimism } from "@thirdweb-dev/chains";
 import "./MintNFT.css";
-import NFT_ABI from "./contractAbi.json"; // Import the ABI
+import NFT_ABI from "../contractAbi.json"; // Corrected import statement
 
 const NFT_CONTRACT_ADDRESS = "0x60b1Aed47EDA9f1E7E72b42A584bAEc7aFbd539B";
 const OPTIMISM_CHAIN_ID = 10;
@@ -215,7 +215,7 @@ const MintNFT: FC = () => {
       });
 
       const tx = await mint({
-        args: [address, tokenURI, mojoScoreStr, narrative], // Added 'address'
+        args: [tokenURI, mojoScoreStr, narrative], // Corrected mint call
         overrides: { value: mintFee }
       });
 
