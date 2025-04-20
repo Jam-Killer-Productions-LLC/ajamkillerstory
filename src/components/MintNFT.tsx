@@ -1,4 +1,3 @@
-// src/components/MintNFT.tsx
 import React, { useState, useEffect, useCallback, FC } from "react";
 import {
   useAddress,
@@ -14,7 +13,7 @@ import "./MintNFT.css";
 const NFT_CONTRACT_ADDRESS = "0x60b1Aed47EDA9f1E7E72b42A584bAEc7aFbd539B";
 const OPTIMISM_CHAIN_ID = 10;
 
-// Contract ABI
+// Minimal ABI for minting
 const NFT_ABI = [
   {
     "inputs": [
@@ -149,58 +148,70 @@ const ConfirmationModal: FC<ConfirmationModalProps> = ({
 const MintNFT: FC = () => {
   const address = useAddress();
   const [, switchNetwork] = useNetwork();
-  const { contract } = useContract(NFT_CONTRACT_ADDRESS, NFT_ABI);
+  const { contract, isLoading: contractLoading } = useContract(NFT_CONTRACT_ADDRESS, NFT_ABI);
   const { data: mintFee } = useContractRead(contract, "mintFee");
   const { mutateAsync: mint } = useContractWrite(contract, "mint");
 
   const [selected, setSelected] = useState<NFTChoice | null>(null);
   const [fee, setFee] = useState<string>("0");
   const [isMinting, setIsMinting] = useState(false);
-  const [status, setStatus] = useState<
-    "idle" | "pending" | "success" | "error"
-  >("idle");
+  const [status, setStatus] = useState<"idle" | "pending" | "success" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState("");
   const [txHash, setTxHash] = useState("");
-  const [onOpt, setOnOpt] = useState(false);
-  const [netErr, setNetErr] = useState("");
+  const [onOptimism, setOnOptimism] = useState(false);
+  const [networkError, setNetworkError] = useState("");
   const [showConfirmation, setShowConfirmation] = useState(false);
 
   // Update fee when mintFee changes
   useEffect(() => {
     if (mintFee) {
-      setFee(ethers.utils.formatEther(mintFee.toString()));
+      try {
+        setFee(ethers.utils.formatEther(mintFee));
+      } catch {
+        setErrorMsg("Failed to parse mint fee");
+        setStatus("error");
+      }
     }
   }, [mintFee]);
 
-  // 🔄 check if we're on Optimism
+  // Check if on Optimism network
   useEffect(() => {
-    if (!address || !(window as any).ethereum) return;
-    ;(window as any).ethereum
+    if (!address || !(window as any).ethereum) {
+      setNetworkError("No wallet detected");
+      return;
+    }
+    (window as any).ethereum
       .request({ method: "eth_chainId" })
       .then((hex: string) => {
-        const id = parseInt(hex, 16);
-        setOnOpt(id === OPTIMISM_CHAIN_ID);
-        setNetErr(id === OPTIMISM_CHAIN_ID ? "" : "Switch to Optimism");
+        const chainId = parseInt(hex, 16);
+        setOnOptimism(chainId === OPTIMISM_CHAIN_ID);
+        setNetworkError(chainId === OPTIMISM_CHAIN_ID ? "" : "Please switch to Optimism");
       })
-      .catch(() => setNetErr("Can't verify network"));
+      .catch(() => setNetworkError("Failed to verify network"));
   }, [address]);
 
-  const switchNet = async () => {
-    if (!switchNetwork) return setNetErr("Install a Web3 wallet");
+  // Switch to Optimism network
+  const switchToOptimism = async () => {
+    if (!switchNetwork) {
+      setNetworkError("No wallet provider detected");
+      return;
+    }
     try {
       await switchNetwork(OPTIMISM_CHAIN_ID);
-      setOnOpt(true);
-      setNetErr("");
-    } catch {
-      setNetErr("Failed to switch");
+      setOnOptimism(true);
+      setNetworkError("");
+    } catch (err) {
+      setNetworkError("Failed to switch to Optimism");
+      setStatus("error");
     }
   };
 
-  const buildMeta = useCallback(() => {
+  // Build NFT metadata
+  const buildMetadata = useCallback(() => {
     if (!selected) return null;
     const mojo = Math.floor(Math.random() * 101);
-    const narrs = ["douche", "Canoe", "Miser"];
-    const narr = narrs[Math.floor(Math.random() * narrs.length)];
+    const narratives = ["Douche", "Canoe", "Miser"];
+    const narrative = narratives[Math.floor(Math.random() * narratives.length)];
     return {
       name: `Don't Kill the Jam: ${NFT_OPTIONS[selected].name}`,
       description: NFT_OPTIONS[selected].description,
@@ -208,81 +219,70 @@ const MintNFT: FC = () => {
       attributes: [
         { trait_type: "Jam Killer", value: NFT_OPTIONS[selected].name },
         { trait_type: "Mojo Score", value: mojo.toString() },
-        { trait_type: "Narrative", value: narr },
+        { trait_type: "Narrative", value: narrative },
       ],
     };
   }, [selected]);
 
+  // Handle mint button click
   const handleMintClick = useCallback(() => {
-    if (!selected || !fee) return;
-    
+    if (!selected || !fee) {
+      setErrorMsg("Select an NFT and ensure fee is loaded");
+      setStatus("error");
+      return;
+    }
     setShowConfirmation(true);
   }, [selected, fee]);
 
+  // Handle confirmed mint action
   const handleConfirmMint = useCallback(async () => {
-    if (!address) {
-      setErrorMsg("Connect your wallet");
-      return setStatus("error");
+    if (!contract) {
+      setErrorMsg("Contract not initialized");
+      setStatus("error");
+      return;
     }
-    if (!onOpt) {
-      await switchNet();
-      setErrorMsg("Switch to Optimism");
-      return setStatus("error");
+    if (!address) {
+      setErrorMsg("Please connect your wallet");
+      setStatus("error");
+      return;
+    }
+    if (!onOptimism) {
+      setErrorMsg("Please switch to Optimism network");
+      setStatus("error");
+      await switchToOptimism();
+      return;
     }
     if (!selected) {
-      setErrorMsg("Select an NFT to mint");
-      return setStatus("error");
+      setErrorMsg("No NFT selected");
+      setStatus("error");
+      return;
     }
     if (!mintFee) {
       setErrorMsg("Mint fee not loaded");
-      return setStatus("error");
+      setStatus("error");
+      return;
     }
 
+    setIsMinting(true);
     setStatus("pending");
     setErrorMsg("");
-    setIsMinting(true);
 
     try {
-      const metadata = buildMeta();
-      if (!metadata) throw new Error("Failed to build metadata");
+      const metadata = buildMetadata();
+      if (!metadata) {
+        throw new Error("Failed to build metadata");
+      }
       const tokenURI = createMetadataURI(metadata);
-
       const mojoScore = BigInt(metadata.attributes.find(attr => attr.trait_type === "Mojo Score")?.value || "0");
       const narrative = metadata.attributes.find(attr => attr.trait_type === "Narrative")?.value?.toString() || "";
 
-      // Convert mintFee to BigInt
-      const mintFeeBigInt = BigInt(mintFee.toString());
-
-      console.log("Minting with params:", {
-        address,
-        tokenURI,
-        mojoScore: mojoScore.toString(),
-        narrative,
-        mintFee: mintFeeBigInt.toString()
-      });
-
       const tx = await mint({
         args: [address, tokenURI, mojoScore, narrative],
-        overrides: { value: mintFeeBigInt }
-      }).catch((error: any) => {
-        console.error("Mint error details:", {
-          error,
-          message: error.message,
-          code: error.code,
-          data: error.data,
-          reason: error.reason,
-          transaction: {
-            from: address,
-            to: NFT_CONTRACT_ADDRESS,
-            value: mintFeeBigInt.toString(),
-            data: error.data
-          }
-        });
-        throw error;
+        overrides: { value: mintFee },
       });
 
       if (!tx?.receipt?.transactionHash) {
-        throw new Error("Mint failed - no transaction hash");
+        throw new Error("No transaction hash returned");
       }
 
       setTxHash(tx.receipt.transactionHash);
@@ -290,28 +290,22 @@ const MintNFT: FC = () => {
       setSelected(null);
       setShowConfirmation(false);
     } catch (err: any) {
-      console.error("Mint error:", err);
-      let errorMessage = "Mint failed";
-      
-      if (err.message?.includes("CALL_EXCEPTION")) {
-        errorMessage = "Transaction reverted. Please ensure you have enough ETH and the correct network.";
-        if (err.reason) {
-          errorMessage += ` Reason: ${err.reason}`;
-        }
-      } else if (err.message?.includes("user rejected")) {
-        errorMessage = "Transaction was rejected by user";
+      let errorMessage = "Minting failed";
+      if (err.message?.includes("user rejected")) {
+        errorMessage = "Transaction rejected by user";
       } else if (err.message?.includes("insufficient funds")) {
-        errorMessage = "Insufficient funds for transaction";
+        errorMessage = "Insufficient ETH for mint fee";
+      } else if (err.reason) {
+        errorMessage = `Contract error: ${err.reason}`;
       } else if (err.message) {
         errorMessage = err.message;
       }
-      
       setErrorMsg(errorMessage);
       setStatus("error");
     } finally {
       setIsMinting(false);
     }
-  }, [address, onOpt, selected, buildMeta, mint, mintFee]);
+  }, [address, onOptimism, selected, mintFee, mint, contract, buildMetadata]);
 
   return (
     <div className="mint-nft-container">
@@ -327,44 +321,47 @@ const MintNFT: FC = () => {
         } : null}
         isLoading={isMinting}
       />
-      
-      {status !== "idle" ? (
+
+      {contractLoading && <p>Loading contract...</p>}
+
+      {status !== "idle" && !contractLoading && (
         <div className={`mint-status ${status}`}>
-          {status === "pending" && <p>Minting…</p>}
+          {status === "pending" && <p>Minting in progress...</p>}
           {status === "success" && (
             <>
-              <p>Success! 🎉</p>
+              <p>Minted successfully! 🎉</p>
               <a
                 href={`https://optimistic.etherscan.io/tx/${txHash}`}
                 target="_blank"
                 rel="noreferrer"
               >
-                View
+                View Transaction
               </a>
             </>
           )}
-          {status === "error" && <p>Failed: {errorMsg}</p>}
+          {status === "error" && <p>Error: {errorMsg}</p>}
         </div>
-      ) : (
-        <>
-          {!address && <p>Connect your wallet</p>}
+      )}
 
-          {address && !onOpt && (
+      {status === "idle" && !contractLoading && (
+        <>
+          {!address && <p>Please connect your wallet</p>}
+
+          {address && !onOptimism && (
             <div>
-              <p>{netErr}</p>
-              <button onClick={switchNet}>Switch to Optimism</button>
+              <p>{networkError}</p>
+              <button onClick={switchToOptimism}>Switch to Optimism</button>
             </div>
           )}
 
-          {address && onOpt && !selected && (
+          {address && onOptimism && !selected && (
             <div className="nft-options">
-              <h3>Pick one (Fee: {fee} ETH)</h3>
+              <h3>Select an NFT (Mint Fee: {fee} ETH)</h3>
               {Object.entries(NFT_OPTIONS).map(([key, opt]) => (
                 <div
                   key={key}
-                  onClick={() =>
-                    setSelected(key as NFTChoice)
-                  }
+                  onClick={() => setSelected(key as NFTChoice)}
+                  className="nft-option"
                 >
                   <img src={opt.image} alt={opt.name} />
                   <h4>{opt.name}</h4>
@@ -377,16 +374,16 @@ const MintNFT: FC = () => {
             <div className="selected-nft">
               <img
                 src={NFT_OPTIONS[selected].image}
-                alt="preview"
+                alt={NFT_OPTIONS[selected].name}
               />
               <h4>{NFT_OPTIONS[selected].name}</h4>
               <p>{NFT_OPTIONS[selected].description}</p>
               <button
                 className="mint-button"
                 onClick={handleMintClick}
-                disabled={isMinting}
+                disabled={isMinting || !mintFee}
               >
-                {isMinting ? "Minting…" : "Mint NFT"}
+                {isMinting ? "Minting..." : "Mint NFT"}
               </button>
             </div>
           )}
