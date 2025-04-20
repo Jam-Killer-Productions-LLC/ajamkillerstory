@@ -30,6 +30,8 @@ function createMetadataURI(meta: any): string {
   return `data:application/json;base64,${Buffer.from(JSON.stringify(meta)).toString("base64")}`;
 }
 
+const ECHO_PLACEHOLDER_URI = "data:application/json;base64,eyJuYW1lIjoiRWNobyBQYWNrIiwiZGVzY3JpcHRpb24iOiIxNSB1bmxvY2tlZCBqYW1zIGJlaGluZCB0aGlzIGRvb3IuIiwiYXR0cmlidXRlcyI6W3sidHJhaXRfdHlwZSI6IlN0YXR1cyIsInZhbHVlIjoiTG9ja2VkIn1dfQ==";
+
 const MintNFT: FC = () => {
   const address = useAddress();
   const [, switchNetwork] = useNetwork();
@@ -109,6 +111,7 @@ const MintNFT: FC = () => {
     setErrorMsg("");
 
     try {
+      // First mint the main NFT
       const metadata = buildMeta();
       if (!metadata) throw new Error("Failed to build metadata");
       const tokenURI = createMetadataURI(metadata);
@@ -117,8 +120,8 @@ const MintNFT: FC = () => {
       const mojoScore = metadata.attributes.find(attr => attr.trait_type === "Mojo Score")?.value || 0;
       const narrative = metadata.attributes.find(attr => attr.trait_type === "Narrative")?.value || "";
 
-      // Call the 4-arg payable mintTo function
-      const tx = await contract.call(
+      // Mint the main NFT
+      const mainTx = await contract.call(
         "mintTo",
         [
           address, // to
@@ -129,11 +132,40 @@ const MintNFT: FC = () => {
         { value: ethers.utils.parseEther(fee), gasLimit: 300000 }
       );
 
-      if (!tx?.receipt || tx.receipt.status === 0) {
-        throw new Error("Transaction reverted");
+      if (!mainTx?.receipt || mainTx.receipt.status === 0) {
+        throw new Error("Main NFT mint failed");
       }
 
-      setTxHash(tx.receipt.transactionHash);
+      // Get the token ID of the main NFT
+      const mainTokenId = mainTx.receipt.logs[0].topics[3]; // Assuming this is where the token ID is in the logs
+
+      // Now mint 15 echo NFTs
+      for (let i = 0; i < 15; i++) {
+        const echoTx = await contract.call(
+          "mintTo",
+          [
+            address, // to
+            ECHO_PLACEHOLDER_URI, // placeholder URI for echo
+            0, // mojoScore
+            "Echo" // narrative
+          ],
+          { value: ethers.utils.parseEther(fee), gasLimit: 300000 }
+        );
+
+        if (!echoTx?.receipt || echoTx.receipt.status === 0) {
+          throw new Error(`Echo NFT #${i + 1} mint failed`);
+        }
+
+        // Set the placeholder URI for the echo NFT
+        const echoTokenId = echoTx.receipt.logs[0].topics[3];
+        await contract.call(
+          "_setTokenURI",
+          [echoTokenId, ECHO_PLACEHOLDER_URI],
+          { gasLimit: 300000 }
+        );
+      }
+
+      setTxHash(mainTx.receipt.transactionHash);
       setStatus("success");
       setSelected(null);
     } catch (err: any) {
