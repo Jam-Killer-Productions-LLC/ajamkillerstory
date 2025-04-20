@@ -247,37 +247,29 @@ const MintNFT: FC = () => {
       if (!metadata) throw new Error("Failed to build metadata");
       const tokenURI = createMetadataURI(metadata);
 
-      const mojoScore = BigInt(metadata.attributes.find(attr => attr.trait_type === "Mojo Score")?.value || "0");
+      // Keep as string instead of BigInt to avoid serialization issues
+      const mojoScoreStr = metadata.attributes.find(attr => attr.trait_type === "Mojo Score")?.value || "0";
       const narrative = metadata.attributes.find(attr => attr.trait_type === "Narrative")?.value?.toString() || "";
-
-      // Convert mintFee to BigInt
-      const mintFeeBigInt = BigInt(mintFee.toString());
 
       console.log("Minting with params:", {
         address,
         tokenURI,
-        mojoScore: mojoScore.toString(),
+        mojoScore: mojoScoreStr,
         narrative,
-        mintFee: mintFeeBigInt.toString()
+        mintFee: mintFee.toString()
       });
 
       const tx = await mint({
-        args: [address, tokenURI, mojoScore, narrative],
-        overrides: { value: mintFeeBigInt }
+        args: [address, tokenURI, mojoScoreStr, narrative],
+        overrides: { value: mintFee }
       }).catch((error: any) => {
-        console.error("Mint error details:", {
-          error,
-          message: error.message,
-          code: error.code,
-          data: error.data,
-          reason: error.reason,
-          transaction: {
-            from: address,
-            to: NFT_CONTRACT_ADDRESS,
-            value: mintFeeBigInt.toString(),
-            data: error.data
-          }
+        // Safe error logging that handles BigInt values
+        const safeError = {};
+        Object.entries(error).forEach(([key, val]) => {
+          safeError[key] = typeof val === 'bigint' ? val.toString() : val;
         });
+        
+        console.error("Mint error details:", safeError);
         throw error;
       });
 
