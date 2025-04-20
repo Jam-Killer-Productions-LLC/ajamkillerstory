@@ -1,6 +1,6 @@
 // src/components/MintNFT.tsx
 import React, { useState, useEffect, useCallback, FC } from "react";
-import { useAddress, useNetwork, useContract, Web3Button } from "@thirdweb-dev/react";
+import { useAddress, useNetwork, useContract, useContractWrite } from "@thirdweb-dev/react";
 import { SmartContract } from "@thirdweb-dev/sdk";
 import { ethers } from "ethers";
 
@@ -59,6 +59,7 @@ const MintNFT: FC = () => {
   const address = useAddress();
   const [, switchNetwork] = useNetwork();
   const { contract } = useContract(NFT_CONTRACT_ADDRESS);
+  const { mutateAsync: mintTo, isLoading } = useContractWrite(contract, "mintTo");
 
   // Local state
   const [selectedNFT, setSelectedNFT] = useState<NFTChoice | null>(null);
@@ -177,19 +178,18 @@ const MintNFT: FC = () => {
         tokenURI
       });
 
-      // Call the contract's mintTo function with exact ABI parameters
-      const tx = await contract.call(
-        "mintTo",
-        [
+      // Use the contract write hook to mint
+      const tx = await mintTo({
+        args: [
           address, // to
           tokenURI, // _tokenURI
           mojoScore, // _mojoScore
           narrative // _narrative
         ],
-        {
+        overrides: {
           value: ethers.utils.parseEther("0.000777") // Mint fee in ETH
         }
-      );
+      });
 
       console.log("Mint transaction:", tx);
       if (tx.receipt?.transactionHash) {
@@ -220,7 +220,7 @@ const MintNFT: FC = () => {
     } finally {
       setIsMinting(false);
     }
-  }, [address, contract, selectedNFT, isMinting, createNFTMetadata]);
+  }, [address, contract, selectedNFT, isMinting, createNFTMetadata, mintTo]);
 
   return (
     <div className="mint-nft-container">
