@@ -3,8 +3,8 @@ import React, { useState } from "react";
 import {
   useAddress,
   useContract,
-  useContractRead,
   useContractWrite,
+  useContractRead,
 } from "@thirdweb-dev/react";
 import { BigNumber } from "ethers";
 import { Buffer } from "buffer";
@@ -64,7 +64,7 @@ const MintNFT: React.FC = () => {
       ).toString("base64")}`;
 
       await mint({
-        args: [address, tokenURI, 5, "Canoe"],
+        args: [address, tokenURI, 5, "Canoe"], // 5 = mojoScore
         overrides: { value: BigNumber.from(mintFee) },
       });
 
