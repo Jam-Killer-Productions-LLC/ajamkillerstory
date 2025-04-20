@@ -215,7 +215,7 @@ const MintNFT: FC = () => {
       });
 
       const tx = await mint({
-        args: [tokenURI, mojoScoreStr, narrative], // Corrected mint call
+        args: [address, tokenURI, mojoScoreStr, narrative], // Added 'address'
         overrides: { value: mintFee }
       });
 
