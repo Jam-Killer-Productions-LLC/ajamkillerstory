@@ -203,6 +203,8 @@ const MintNFT: FC = () => {
       if (tx.receipt?.transactionHash) {
         setTxHash(tx.receipt.transactionHash);
         setMintStatus("success");
+        // Reset selected NFT after successful mint
+        setSelectedNFT(null);
       } else {
         throw new Error("No transaction hash found");
       }
