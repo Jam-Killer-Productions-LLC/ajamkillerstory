@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback, FC } from "react";
 import { useAddress, useNetwork, useContract } from "@thirdweb-dev/react";
 import { ethers } from "ethers";
 
-const NFT_CONTRACT_ADDRESS = "0x914B1339944D48236738424e2dBDBB72A212B2F5";
+const NFT_CONTRACT_ADDRESS = "0x60b1Aed47EDA9f1E7E72b42A584bAEc7aFbd539B";
 const OPTIMISM_CHAIN_ID = 10;
 
 const NFT_OPTIONS = {
@@ -29,8 +29,6 @@ type NFTChoice = keyof typeof NFT_OPTIONS;
 function createMetadataURI(meta: any): string {
   return `data:application/json;base64,${Buffer.from(JSON.stringify(meta)).toString("base64")}`;
 }
-
-const ECHO_PLACEHOLDER_URI = "data:application/json;base64,eyJuYW1lIjoiRWNobyBQYWNrIiwiZGVzY3JpcHRpb24iOiIxNSB1bmxvY2tlZCBqYW1zIGJlaGluZCB0aGlzIGRvb3IuIiwiYXR0cmlidXRlcyI6W3sidHJhaXRfdHlwZSI6IlN0YXR1cyIsInZhbHVlIjoiTG9ja2VkIn1dfQ==";
 
 const MintNFT: FC = () => {
   const address = useAddress();
@@ -111,7 +109,6 @@ const MintNFT: FC = () => {
     setErrorMsg("");
 
     try {
-      // First mint the main NFT
       const metadata = buildMeta();
       if (!metadata) throw new Error("Failed to build metadata");
       const tokenURI = createMetadataURI(metadata);
@@ -120,52 +117,23 @@ const MintNFT: FC = () => {
       const mojoScore = metadata.attributes.find(attr => attr.trait_type === "Mojo Score")?.value || 0;
       const narrative = metadata.attributes.find(attr => attr.trait_type === "Narrative")?.value || "";
 
-      // Mint the main NFT
-      const mainTx = await contract.call(
-        "mintTo",
+      // Mint the NFT using the new contract's mint function
+      const tx = await contract.call(
+        "mint",
         [
           address, // to
-          tokenURI, // _tokenURI
-          mojoScore, // _mojoScore
-          narrative // _narrative
+          tokenURI, // tokenURI
+          mojoScore, // mojo
+          narrative // narr
         ],
         { value: ethers.utils.parseEther(fee), gasLimit: 300000 }
       );
 
-      if (!mainTx?.receipt || mainTx.receipt.status === 0) {
-        throw new Error("Main NFT mint failed");
+      if (!tx?.receipt || tx.receipt.status === 0) {
+        throw new Error("Mint failed");
       }
 
-      // Get the token ID of the main NFT
-      const mainTokenId = mainTx.receipt.logs[0].topics[3]; // Assuming this is where the token ID is in the logs
-
-      // Now mint 15 echo NFTs
-      for (let i = 0; i < 15; i++) {
-        const echoTx = await contract.call(
-          "mintTo",
-          [
-            address, // to
-            ECHO_PLACEHOLDER_URI, // placeholder URI for echo
-            0, // mojoScore
-            "Echo" // narrative
-          ],
-          { value: ethers.utils.parseEther(fee), gasLimit: 300000 }
-        );
-
-        if (!echoTx?.receipt || echoTx.receipt.status === 0) {
-          throw new Error(`Echo NFT #${i + 1} mint failed`);
-        }
-
-        // Set the placeholder URI for the echo NFT
-        const echoTokenId = echoTx.receipt.logs[0].topics[3];
-        await contract.call(
-          "_setTokenURI",
-          [echoTokenId, ECHO_PLACEHOLDER_URI],
-          { gasLimit: 300000 }
-        );
-      }
-
-      setTxHash(mainTx.receipt.transactionHash);
+      setTxHash(tx.receipt.transactionHash);
       setStatus("success");
       setSelected(null);
     } catch (err: any) {

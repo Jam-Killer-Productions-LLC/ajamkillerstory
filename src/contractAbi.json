@@ -25,6 +25,11 @@
         "internalType": "uint128",
         "name": "_royaltyBps",
         "type": "uint128"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_initialMintFee",
+        "type": "uint256"
       }
     ],
     "stateMutability": "nonpayable",
@@ -294,6 +299,37 @@
       {
         "indexed": true,
         "internalType": "address",
+        "name": "to",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "tokenId",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "mojo",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "narr",
+        "type": "string"
+      }
+    ],
+    "name": "NFTMinted",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
         "name": "prevOwner",
         "type": "address"
       },
@@ -452,34 +488,6 @@
     "name": "batchMintTo",
     "outputs": [],
     "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "to",
-        "type": "address"
-      },
-      {
-        "internalType": "string[]",
-        "name": "_tokenURIs",
-        "type": "string[]"
-      },
-      {
-        "internalType": "uint256[]",
-        "name": "_mojoScores",
-        "type": "uint256[]"
-      },
-      {
-        "internalType": "string[]",
-        "name": "_narratives",
-        "type": "string[]"
-      }
-    ],
-    "name": "batchMintTo",
-    "outputs": [],
-    "stateMutability": "payable",
     "type": "function"
   },
   {
@@ -722,6 +730,62 @@
     "type": "function"
   },
   {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "to",
+        "type": "address"
+      },
+      {
+        "internalType": "string",
+        "name": "tokenURI",
+        "type": "string"
+      },
+      {
+        "internalType": "uint256",
+        "name": "mojo",
+        "type": "uint256"
+      },
+      {
+        "internalType": "string",
+        "name": "narr",
+        "type": "string"
+      }
+    ],
+    "name": "mint",
+    "outputs": [],
+    "stateMutability": "payable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "to",
+        "type": "address"
+      },
+      {
+        "internalType": "string[]",
+        "name": "tokenURIs",
+        "type": "string[]"
+      },
+      {
+        "internalType": "uint256[]",
+        "name": "mojos",
+        "type": "uint256[]"
+      },
+      {
+        "internalType": "string[]",
+        "name": "narrs",
+        "type": "string[]"
+      }
+    ],
+    "name": "mintBatch",
+    "outputs": [],
+    "stateMutability": "payable",
+    "type": "function"
+  },
+  {
     "inputs": [],
     "name": "mintFee",
     "outputs": [
@@ -750,34 +814,6 @@
     "name": "mintTo",
     "outputs": [],
     "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "to",
-        "type": "address"
-      },
-      {
-        "internalType": "string",
-        "name": "_tokenURI",
-        "type": "string"
-      },
-      {
-        "internalType": "uint256",
-        "name": "_mojoScore",
-        "type": "uint256"
-      },
-      {
-        "internalType": "string",
-        "name": "_narrative",
-        "type": "string"
-      }
-    ],
-    "name": "mintTo",
-    "outputs": [],
-    "stateMutability": "payable",
     "type": "function"
   },
   {
@@ -1028,7 +1064,7 @@
     "inputs": [
       {
         "internalType": "uint256",
-        "name": "_fee",
+        "name": "fee",
         "type": "uint256"
       }
     ],
