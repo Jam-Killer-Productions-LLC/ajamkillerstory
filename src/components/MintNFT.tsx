@@ -1,6 +1,7 @@
 // src/components/MintNFT.tsx
 import React, { useState, useEffect, useCallback, FC } from "react";
-import { useAddress, useNetwork, useContract, useContractWrite } from "@thirdweb-dev/react";
+import { useAddress, useNetwork, useContract, Web3Button } from "@thirdweb-dev/react";
+import { SmartContract } from "@thirdweb-dev/sdk";
 import { ethers } from "ethers";
 
 // Configuration
@@ -58,7 +59,6 @@ const MintNFT: FC = () => {
   const address = useAddress();
   const [, switchNetwork] = useNetwork();
   const { contract } = useContract(NFT_CONTRACT_ADDRESS);
-  const { mutateAsync: mintTo } = useContractWrite(contract, "mintTo(address,string,uint256,string)");
 
   // Local state
   const [selectedNFT, setSelectedNFT] = useState<NFTChoice | null>(null);
@@ -192,19 +192,20 @@ const MintNFT: FC = () => {
         console.warn("Could not read mint fee from contract:", feeError);
       }
 
-      // Execute mint transaction with all required parameters
+      // Call the contract's mintTo function directly
       const tx = await contract.call(
         "mintTo",
         [address, tokenURI, mojoScore, narrative],
-        { 
-          value: fee,
-          gasLimit: 500000 // Add explicit gas limit
-        }
+        { value: fee }
       );
 
       console.log("Mint transaction:", tx);
-      setTxHash(tx.receipt.transactionHash);
-      setMintStatus("success");
+      if (tx.receipt?.transactionHash) {
+        setTxHash(tx.receipt.transactionHash);
+        setMintStatus("success");
+      } else {
+        throw new Error("No transaction hash found");
+      }
     } catch (error: any) {
       console.error("Mint error:", error);
       const msg = error.message || "Minting failed";
