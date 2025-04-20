@@ -3,137 +3,109 @@ import React, { useState, useEffect, useCallback, FC } from "react";
 import { useAddress, useNetwork, useContract } from "@thirdweb-dev/react";
 import { ethers } from "ethers";
 
-// Configuration
 const NFT_CONTRACT_ADDRESS = "0x914B1339944D48236738424e2dBDBB72A212B2F5";
 const OPTIMISM_CHAIN_ID = 10;
 
-// NFT Options
 const NFT_OPTIONS = {
-  A: {
-    image: "https://bafybeiakvemnjhgbgknb4luge7kayoyslnkmgqcw7xwaoqmr5l6ujnalum.ipfs.dweb.link?filename=dktjnft1.gif",
-    name: "The Noise Police Neighbor",
-    description: "Your uptight neighbor with a decibel meter and a vendetta against fun.",
-  },
-  B: {
-    image: "https://bafybeiapjhb52gxhsnufm2mcrufk7d35id3lnexwftxksbcmbx5hsuzore.ipfs.dweb.link?filename=dktjnft2.gif",
-    name: "The Mean Girlfriend",
-    description: "She says your music is 'too loud' and 'embarrassing'.",
-  },
-  C: {
-    image: "https://bafybeifoew7nyl5p5xxroo3y4lhb2fg2a6gifmd7mdav7uibi4igegehjm.ipfs.dweb.link?filename=dktjnft3.gif",
-    name: "The Jerk Bar Owner",
-    description: "He cut your set short for 'being too experimental'.",
-  },
+  A: { image: ".../dktjnft1.gif", name: "The Noise Police Neighbor", description: "..." },
+  B: { image: ".../dktjnft2.gif", name: "The Mean Girlfriend",     description: "..." },
+  C: { image: ".../dktjnft3.gif", name: "The Jerk Bar Owner",       description: "..." },
 } as const;
 
 type NFTChoice = keyof typeof NFT_OPTIONS;
 
-// helper to encode JSON metadata as a base64 URI
-function createMetadataURI(metadata: any): string {
-  const encoded = Buffer.from(JSON.stringify(metadata)).toString("base64");
-  return `data:application/json;base64,${encoded}`;
+function createMetadataURI(meta: any): string {
+  return `data:application/json;base64,${Buffer.from(JSON.stringify(meta)).toString("base64")}`;
 }
 
 const MintNFT: FC = () => {
   const address = useAddress();
   const [, switchNetwork] = useNetwork();
   const { contract } = useContract(NFT_CONTRACT_ADDRESS);
-
-  const [selectedNFT, setSelectedNFT] = useState<NFTChoice | null>(null);
-  const [isOnOptimism, setIsOnOptimism] = useState(false);
-  const [networkError, setNetworkError] = useState("");
-  const [mintStatus, setMintStatus] = useState<"idle" | "pending" | "success" | "error">("idle");
-  const [errorMessage, setErrorMessage] = useState("");
-  const [txHash, setTxHash] = useState("");
+  const [selected, setSelected] = useState<NFTChoice|null>(null);
+  const [fee, setFee] = useState<string>("0");
   const [isMinting, setIsMinting] = useState(false);
-  const [currentMintFee, setCurrentMintFee] = useState<string>("0");
+  const [status, setStatus] = useState<"idle"|"pending"|"success"|"error">("idle");
+  const [errorMsg, setErrorMsg] = useState("");
+  const [txHash, setTxHash] = useState("");
+  const [onOpt, setOnOpt] = useState(false);
+  const [netErr, setNetErr] = useState("");
 
-  // fetch on‑chain mint fee
+  // fetch fee
   useEffect(() => {
     if (!contract) return;
-    contract
-      .call("mintFee")
-      .then((fee: any) => setCurrentMintFee(ethers.utils.formatEther(fee)))
+    contract.call("mintFee")
+      .then((f: any) => setFee(ethers.utils.formatEther(f)))
       .catch(console.error);
   }, [contract]);
 
-  // watch chain
+  // check chain
   useEffect(() => {
     if (!address || !(window as any).ethereum) return;
-    (window as any).ethereum
-      .request({ method: "eth_chainId" })
-      .then((hex: string) => {
-        const chainId = parseInt(hex, 16);
-        setIsOnOptimism(chainId === OPTIMISM_CHAIN_ID);
-        setNetworkError(chainId === OPTIMISM_CHAIN_ID ? "" : "Switch to Optimism");
+    (window as any).ethereum.request({ method: "eth_chainId" })
+      .then((hex:string) => {
+        const id = parseInt(hex,16);
+        setOnOpt(id===OPTIMISM_CHAIN_ID);
+        setNetErr(id===OPTIMISM_CHAIN_ID? "": "Switch to Optimism");
       })
-      .catch(() => {
-        setIsOnOptimism(false);
-        setNetworkError("Can't verify network");
-      });
+      .catch(()=> setNetErr("Can't verify network"));
   }, [address]);
 
-  const handleSwitchNetwork = async () => {
-    if (!switchNetwork) {
-      setNetworkError("Switch to Optimism in your wallet");
-      return;
-    }
+  const switchNet = async () => {
+    if (!switchNetwork) return setNetErr("Install a Web3 wallet");
     try {
       await switchNetwork(OPTIMISM_CHAIN_ID);
-      setIsOnOptimism(true);
-      setNetworkError("");
-    } catch {
-      setNetworkError("Failed to switch network");
-    }
+      setOnOpt(true);
+      setNetErr("");
+    } catch { setNetErr("Failed to switch"); }
   };
 
-  // bake in mojoScore + narrative into your metadata attrs
-  const createNFTMetadata = useCallback(() => {
-    if (!selectedNFT) return null;
-
-    const mojoScore = Math.floor(Math.random() * 101);
-    const narrativeWords = ["douche", "Canoe", "Miser"];
-    const narrative = narrativeWords[Math.floor(Math.random() * narrativeWords.length)];
-
+  // build metadata with mojo & narrative
+  const buildMeta = useCallback(() => {
+    if (!selected) return null;
+    const mojo = Math.floor(Math.random()*101);
+    const narrs = ["douche","Canoe","Miser"];
+    const narr = narrs[Math.floor(Math.random()*narrs.length)];
     return {
-      name: `Don't Kill the Jam: ${NFT_OPTIONS[selectedNFT].name}`,
-      description: NFT_OPTIONS[selectedNFT].description,
-      image: NFT_OPTIONS[selectedNFT].image,
+      name: `Don't Kill the Jam: ${NFT_OPTIONS[selected].name}`,
+      description: NFT_OPTIONS[selected].description,
+      image: NFT_OPTIONS[selected].image,
       attributes: [
-        { trait_type: "Jam Killer", value: NFT_OPTIONS[selectedNFT].name },
-        { trait_type: "Mojo Score", value: mojoScore },
-        { trait_type: "Narrative", value: narrative },
+        { trait_type: "Jam Killer", value: NFT_OPTIONS[selected].name },
+        { trait_type: "Mojo Score", value: mojo },
+        { trait_type: "Narrative",   value: narr }
       ],
     };
-  }, [selectedNFT]);
+  }, [selected]);
 
   const handleMint = useCallback(async () => {
-    if (!address || !contract || !selectedNFT || isMinting) {
-      setErrorMessage(
+    if (!address || !contract || !selected || isMinting) {
+      setErrorMsg(
         !address
           ? "Connect your wallet"
           : !contract
           ? "Contract not loaded"
-          : !selectedNFT
+          : !selected
           ? "Select an NFT to mint"
           : "Mint already in progress"
       );
-      return setMintStatus("error");
+      return setStatus("error");
     }
 
-    setMintStatus("pending");
+    setStatus("pending");
     setIsMinting(true);
-    setErrorMessage("");
+    setErrorMsg("");
 
     try {
-      const metadata = createNFTMetadata();
+      const metadata = buildMeta();
       if (!metadata) throw new Error("Failed to build metadata");
       const tokenURI = createMetadataURI(metadata);
 
-      // Get the mojoScore and narrative from metadata attributes
+      // Get mojoScore and narrative from metadata attributes
       const mojoScore = metadata.attributes.find(attr => attr.trait_type === "Mojo Score")?.value || 0;
       const narrative = metadata.attributes.find(attr => attr.trait_type === "Narrative")?.value || "";
 
+      // Call the 4-arg payable mintTo function
       const tx = await contract.call(
         "mintTo",
         [
@@ -142,7 +114,7 @@ const MintNFT: FC = () => {
           mojoScore, // _mojoScore
           narrative // _narrative
         ],
-        { value: ethers.utils.parseEther(currentMintFee), gasLimit: 300000 }
+        { value: ethers.utils.parseEther(fee), gasLimit: 300000 }
       );
 
       if (!tx?.receipt || tx.receipt.status === 0) {
@@ -150,82 +122,59 @@ const MintNFT: FC = () => {
       }
 
       setTxHash(tx.receipt.transactionHash);
-      setMintStatus("success");
-      setSelectedNFT(null);
+      setStatus("success");
+      setSelected(null);
     } catch (err: any) {
       console.error(err);
-      setErrorMessage(err.message || "Mint failed");
-      setMintStatus("error");
+      setErrorMsg(err.message || "Mint failed");
+      setStatus("error");
     } finally {
       setIsMinting(false);
     }
-  }, [address, contract, selectedNFT, isMinting, currentMintFee, createNFTMetadata]);
+  }, [address, contract, selected, isMinting, fee, buildMeta]);
 
   return (
     <div className="mint-nft-container">
-      {mintStatus !== "idle" ? (
-        <div className={`mint-status ${mintStatus}`}>
-          {mintStatus === "pending" && <p>Minting your NFT...</p>}
-          {mintStatus === "success" && (
+      {status!=="idle" ? (
+        <div className={`mint-status ${status}`}>
+          {status==="pending" && <p>Minting…</p>}
+          {status==="success" && (
             <>
-              <p>NFT minted successfully! 🎉</p>
-              <a
-                href={`https://optimistic.etherscan.io/tx/${txHash}`}
-                target="_blank"
-                rel="noopener noreferrer"
-              >View on Etherscan</a>
+              <p>Success! 🎉</p>
+              <a href={`https://optimistic.etherscan.io/tx/${txHash}`} target="_blank" rel="noreferrer">View</a>
             </>
           )}
-          {mintStatus === "error" && (
+          {status==="error" && (
             <>
-              <p>Mint failed:</p>
-              <p>{errorMessage}</p>
+              <p>Failed: {errorMsg}</p>
             </>
           )}
         </div>
       ) : (
         <>
-          {!address && <p>Connect your wallet to mint.</p>}
-          {address && !isOnOptimism && (
+          {!address && <p>Connect wallet</p>}
+          {address && !onOpt && (
             <div>
-              <p>You must be on Optimism to mint</p>
-              <button onClick={handleSwitchNetwork}>Switch to Optimism</button>
-              {networkError && <p>{networkError}</p>}
+              <p>{netErr}</p>
+              <button onClick={switchNet}>Switch to Optimism</button>
             </div>
           )}
-          {address && isOnOptimism && !selectedNFT && (
-            <div className="nft-selection">
-              <h3>Choose Your Jam Killer!</h3>
-              <p>Mint Fee: {currentMintFee} ETH</p>
-              <div className="nft-options">
-                {Object.entries(NFT_OPTIONS).map(([key, opt]) => (
-                  <div
-                    key={key}
-                    className="nft-option"
-                    onClick={() => setSelectedNFT(key as NFTChoice)}
-                  >
-                    <img src={opt.image} alt={opt.name} />
-                    <h4>{opt.name}</h4>
-                    <p>{opt.description}</p>
-                  </div>
-                ))}
-              </div>
+          {address && onOpt && !selected && (
+            <div className="nft-options">
+              <h3>Pick one (Fee: {fee} ETH)</h3>
+              {Object.entries(NFT_OPTIONS).map(([k,o])=>(
+                <div key={k} onClick={()=>setSelected(k as NFTChoice)}>
+                  <img src={o.image} alt={o.name}/>
+                  <h4>{o.name}</h4>
+                </div>
+              ))}
             </div>
           )}
-          {selectedNFT && (
-            <div className="selected-nft">
-              <img
-                src={NFT_OPTIONS[selectedNFT].image}
-                alt={NFT_OPTIONS[selectedNFT].name}
-              />
-              <h4>{NFT_OPTIONS[selectedNFT].name}</h4>
-              <p>{NFT_OPTIONS[selectedNFT].description}</p>
-              <p>Mint Fee: {currentMintFee} ETH</p>
-              <button
-                onClick={handleMint}
-                disabled={!address || !isOnOptimism || isMinting}
-              >
-                {isMinting ? "Minting…" : "Mint NFT"}
+          {selected && (
+            <div>
+              <img src={NFT_OPTIONS[selected].image} alt="preview"/>
+              <button onClick={handleMint} disabled={isMinting}>
+                {isMinting?"Going…":"Mint NFT"}
               </button>
             </div>
           )}
