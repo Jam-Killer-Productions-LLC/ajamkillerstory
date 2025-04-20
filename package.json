@@ -25,7 +25,8 @@
     "ethers": "latest",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "thirdweb": "^5.92.1"
+    "thirdweb": "^5.92.1",
+    "web3": "^4.16.0"
   },
   "devDependencies": {
     "@types/react": "^18.3.18",

@@ -6,8 +6,8 @@ import { ThirdwebProvider } from "@thirdweb-dev/react";
 import { Optimism } from "@thirdweb-dev/chains";
 
 // ThirdWeb credentials
-const clientId = "e24d90c806dc62cef0745af3ddd76314";
-const secretKey = "4bbviBUxwjnNm09i_eWEOdysB0wIxEkKdO84s2BzMtqGWbYOWFtu6q6fb1oUICv5cKps6esnbkyRHTceh_0cYg";
+const clientId = import.meta.env.VITE_THIRDWEB_CLIENT_ID;
+const secretKey = import.meta.env.VITE_THIRDWEB_SECRET_KEY;
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

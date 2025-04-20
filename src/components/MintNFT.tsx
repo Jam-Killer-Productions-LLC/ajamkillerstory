@@ -250,23 +250,33 @@ const MintNFT: FC = () => {
       const mojoScore = BigInt(metadata.attributes.find(attr => attr.trait_type === "Mojo Score")?.value || "0");
       const narrative = metadata.attributes.find(attr => attr.trait_type === "Narrative")?.value?.toString() || "";
 
+      // Convert mintFee to BigInt
+      const mintFeeBigInt = BigInt(mintFee.toString());
+
       console.log("Minting with params:", {
         address,
         tokenURI,
         mojoScore: mojoScore.toString(),
         narrative,
-        mintFee: mintFee.toString()
+        mintFee: mintFeeBigInt.toString()
       });
 
       const tx = await mint({
-        args: [address, tokenURI, mojoScore.toString(), narrative],
-        overrides: { value: mintFee.toString() }
+        args: [address, tokenURI, mojoScore, narrative],
+        overrides: { value: mintFeeBigInt }
       }).catch((error: any) => {
         console.error("Mint error details:", {
           error,
           message: error.message,
           code: error.code,
-          data: error.data
+          data: error.data,
+          reason: error.reason,
+          transaction: {
+            from: address,
+            to: NFT_CONTRACT_ADDRESS,
+            value: mintFeeBigInt.toString(),
+            data: error.data
+          }
         });
         throw error;
       });
@@ -285,6 +295,9 @@ const MintNFT: FC = () => {
       
       if (err.message?.includes("CALL_EXCEPTION")) {
         errorMessage = "Transaction reverted. Please ensure you have enough ETH and the correct network.";
+        if (err.reason) {
+          errorMessage += ` Reason: ${err.reason}`;
+        }
       } else if (err.message?.includes("user rejected")) {
         errorMessage = "Transaction was rejected by user";
       } else if (err.message?.includes("insufficient funds")) {
