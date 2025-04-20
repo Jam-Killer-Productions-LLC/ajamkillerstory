@@ -162,18 +162,28 @@ const MintNFT: FC = () => {
       // Create the token URI
       const tokenURI = createMetadataURI(metadata);
 
-      // Default mint fee
+      // Default mint fee - 0.001 ETH
       const fee = ethers.utils.parseEther("0.001");
+
+      // Generate random mojo score (0-100)
+      const mojoScore = Math.floor(Math.random() * 101);
+
+      // Select random narrative word
+      const narrativeWords = ["douche", "Canoe", "Miser"];
+      const narrative = narrativeWords[Math.floor(Math.random() * narrativeWords.length)];
 
       console.log("Minting NFT with:", {
         address,
         selectedNFT,
+        fee: fee.toString(),
+        mojoScore,
+        narrative
       });
 
-      // Execute mint transaction
+      // Execute mint transaction with all required parameters
       const tx = await contract.call(
         "mintTo",
-        [address, tokenURI, 0, ""],
+        [address, tokenURI, mojoScore, narrative],
         { value: fee }
       );
 
