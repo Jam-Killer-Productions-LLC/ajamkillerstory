@@ -215,8 +215,8 @@ const MintNFT: React.FC = () => {
         }
 
         const tokenURI = createMetadataURI(metadata);
-        const mojoScore = BigInt(Math.floor(Math.random() * 101));
-        const narrative = "Canoe"; // Default narrative
+        const mojoScore = 5; // Fixed value between 1-10
+        const narrative = "Canoe";
 
         const tx = await mint({
           args: [address, tokenURI, mojoScore, narrative],
