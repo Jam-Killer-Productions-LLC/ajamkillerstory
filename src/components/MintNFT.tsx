@@ -117,16 +117,16 @@ const MintNFT: FC = () => {
       const mojoScore = metadata.attributes.find(attr => attr.trait_type === "Mojo Score")?.value || 0;
       const narrative = metadata.attributes.find(attr => attr.trait_type === "Narrative")?.value || "";
 
-      // Mint the NFT using the new contract's mint function
+      // Mint the NFT using the new contract's mint function with exact parameter types
       const tx = await contract.call(
         "mint",
         [
-          address, // to
-          tokenURI, // tokenURI
-          mojoScore, // mojo
-          narrative // narr
+          address, // to: address
+          tokenURI, // tokenURI: string
+          mojoScore, // mojo: uint256
+          narrative // narr: string
         ],
-        { value: ethers.utils.parseEther(fee), gasLimit: 300000 }
+        { value: ethers.utils.parseEther(fee) }
       );
 
       if (!tx?.receipt || tx.receipt.status === 0) {
