@@ -1191,6 +1191,10 @@ p, h2, h3, h4, .path-title, .path-description, .step-name, button, .wallet-addre
   background-color: var(--card-bg);
   border-radius: var(--border-radius);
   border: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
 }
 
 .selected-nft img {
@@ -1198,17 +1202,74 @@ p, h2, h3, h4, .path-title, .path-description, .step-name, button, .wallet-addre
   max-width: 300px;
   height: auto;
   border-radius: var(--border-radius);
-  margin-bottom: 1rem;
+  box-shadow: var(--shadow-lg);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .selected-nft h4 {
   font-size: 1.5rem;
-  margin-bottom: 0.5rem;
+  margin: 0;
   color: var(--primary-color);
+  text-shadow: 0 0 10px rgba(76, 175, 80, 0.3);
 }
 
 .selected-nft p {
   color: rgba(255, 255, 255, 0.8);
-  margin-bottom: 1.5rem;
+  margin: 0;
   line-height: 1.4;
+}
+
+/* Mint button specific styles */
+.mint-button {
+  background: var(--primary-gradient);
+  color: white;
+  padding: 1.2rem 2.5rem;
+  font-size: 1.2rem;
+  border: none;
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  box-shadow: var(--shadow-md);
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  width: 100%;
+  max-width: 300px;
+  margin: 1.5rem auto;
+  display: block;
+}
+
+.mint-button:hover:not(:disabled) {
+  transform: translateY(-3px) scale(1.02);
+  box-shadow: var(--shadow-lg), var(--primary-glow);
+}
+
+.mint-button:active:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.mint-button:disabled {
+  background: linear-gradient(135deg, #cccccc, #999999);
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+  opacity: 0.7;
+}
+
+/* Mobile view adjustments */
+@media (max-width: 768px) {
+  .mint-button {
+    padding: 1rem 2rem;
+    font-size: 1.1rem;
+    max-width: 250px;
+  }
+
+  .selected-nft {
+    padding: 1.5rem;
+    margin: 1.5rem auto;
+  }
+
+  .selected-nft img {
+    max-width: 250px;
+  }
 }
