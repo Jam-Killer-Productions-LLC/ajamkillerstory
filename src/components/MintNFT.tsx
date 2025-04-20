@@ -9,6 +9,7 @@ import {
 } from "@thirdweb-dev/react";
 import { ethers } from "ethers";
 import { Optimism } from "@thirdweb-dev/chains";
+import "./MintNFT.css";
 
 const NFT_CONTRACT_ADDRESS = "0x60b1Aed47EDA9f1E7E72b42A584bAEc7aFbd539B";
 const OPTIMISM_CHAIN_ID = 10;
@@ -353,98 +354,5 @@ const MintNFT: FC = () => {
     </div>
   );
 };
-
-// Add styles for the modal
-const styles = document.createElement('style');
-styles.textContent = `
-  .modal-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: rgba(0, 0, 0, 0.75);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 1000;
-  }
-
-  .modal-content {
-    background: #1a1a1a;
-    padding: 2rem;
-    border-radius: 12px;
-    max-width: 500px;
-    width: 90%;
-    color: white;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  }
-
-  .nft-preview {
-    text-align: center;
-    margin: 1rem 0;
-  }
-
-  .preview-image {
-    max-width: 200px;
-    border-radius: 8px;
-    margin: 1rem 0;
-  }
-
-  .transaction-details {
-    background: rgba(255, 255, 255, 0.05);
-    padding: 1rem;
-    border-radius: 8px;
-    margin: 1rem 0;
-  }
-
-  .modal-actions {
-    display: flex;
-    gap: 1rem;
-    margin-top: 1.5rem;
-  }
-
-  .confirm-button, .cancel-button {
-    padding: 0.75rem 1.5rem;
-    border-radius: 8px;
-    border: none;
-    font-weight: bold;
-    cursor: pointer;
-    flex: 1;
-    transition: all 0.2s;
-  }
-
-  .confirm-button {
-    background: #4CAF50;
-    color: white;
-  }
-
-  .confirm-button:hover {
-    background: #45a049;
-  }
-
-  .confirm-button:disabled {
-    background: #45a049;
-    opacity: 0.7;
-    cursor: not-allowed;
-  }
-
-  .cancel-button {
-    background: #f44336;
-    color: white;
-  }
-
-  .cancel-button:hover {
-    background: #da190b;
-  }
-
-  .cancel-button:disabled {
-    background: #da190b;
-    opacity: 0.7;
-    cursor: not-allowed;
-  }
-`;
-
-document.head.appendChild(styles);
 
 export default MintNFT;
