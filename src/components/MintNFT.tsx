@@ -119,7 +119,7 @@ const MintNFT: FC = () => {
     if (!selectedNFT) return null;
 
     const metadata = {
-      name: NFT_OPTIONS[selectedNFT].name,
+      name: `Don't Kill the Jam: ${NFT_OPTIONS[selectedNFT].name}`,
       description: NFT_OPTIONS[selectedNFT].description,
       image: NFT_OPTIONS[selectedNFT].image,
       attributes: [
