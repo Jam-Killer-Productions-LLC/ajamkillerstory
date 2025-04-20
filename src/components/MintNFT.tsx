@@ -1,18 +1,13 @@
-import React, { useState, useCallback } from "react";
+import React, { useState } from "react";
 import {
   useAddress,
-  useNetwork,
   useContract,
-  useContractRead,
   useContractWrite,
-  useSwitchChain,
+  useContractRead,
 } from "@thirdweb-dev/react";
-import { Optimism } from "@thirdweb-dev/chains";
-import { ethers } from "ethers";
 import "./MintNFT.css";
 
 const NFT_CONTRACT_ADDRESS = "0x60b1Aed47EDA9f1E7E72b42A584bAEc7aFbd539B";
-const OPTIMISM_CHAIN_ID = 10;
 
 const NFT_OPTIONS = {
   A: {
@@ -34,286 +29,80 @@ const NFT_OPTIONS = {
 
 type NFTChoice = keyof typeof NFT_OPTIONS;
 
-interface NFTMetadata {
-  name: string;
-  description: string;
-  image: string;
-}
+const MintNFT: React.FC = () => {
+  const address = useAddress();
+  const { contract } = useContract(NFT_CONTRACT_ADDRESS);
+  const { mutateAsync: mint } = useContractWrite(contract, "mint");
+  const { data: mintFee } = useContractRead(contract, "mintFee");
 
-interface ConfirmationModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onConfirm: () => void;
-  nftDetails: {
-    name: string;
-    description: string;
-    image: string;
-    fee: string;
-  } | null;
-  isLoading: boolean;
-  step: "approve" | "sign" | "minting";
-}
+  const [selected, setSelected] = useState<NFTChoice | null>(null);
+  const [isMinting, setIsMinting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-const createMetadataURI = (metadata: NFTMetadata): string => {
-  return `data:application/json;base64,${Buffer.from(JSON.stringify(metadata)).toString("base64")}`;
-};
+  const handleMint = async () => {
+    if (!selected || !address) return;
 
-const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
-  isOpen,
-  onClose,
-  onConfirm,
-  nftDetails,
-  isLoading,
-  step
-}) => {
-  if (!isOpen || !nftDetails) return null;
+    try {
+      setIsMinting(true);
+      setError(null);
 
-  const getButtonText = () => {
-    if (isLoading) {
-      switch (step) {
-        case "approve":
-          return "Approving...";
-        case "sign":
-          return "Waiting for signature...";
-        case "minting":
-          return "Minting...";
-        default:
-          return "Processing...";
-      }
-    }
-    switch (step) {
-      case "approve":
-        return "Approve Transaction";
-      case "sign":
-        return "Sign Transaction";
-      case "minting":
-        return "Mint NFT";
-      default:
-        return "Confirm";
+      const metadata = {
+        name: `Don't Kill the Jam: ${NFT_OPTIONS[selected].name}`,
+        description: NFT_OPTIONS[selected].description,
+        image: NFT_OPTIONS[selected].image,
+      };
+
+      const tokenURI = `data:application/json;base64,${Buffer.from(JSON.stringify(metadata)).toString("base64")}`;
+      const mojoScore = 5;
+      const narrative = "Canoe";
+
+      await mint({
+        args: [address, tokenURI, mojoScore, narrative],
+        overrides: { value: mintFee }
+      });
+
+      setSelected(null);
+    } catch (err: any) {
+      setError(err.message || "Failed to mint NFT");
+    } finally {
+      setIsMinting(false);
     }
   };
 
   return (
-    <div className="modal-overlay">
-      <div className="modal-content">
-        <h3>Confirm NFT Mint</h3>
-        <div className="nft-preview">
-          <img src={nftDetails.image} alt={nftDetails.name} className="preview-image" />
-          <h4>{nftDetails.name}</h4>
-          <p>{nftDetails.description}</p>
-        </div>
-        <div className="transaction-details">
-          <h4>Transaction Details</h4>
-          <p>Mint Fee: {nftDetails.fee} ETH</p>
-          <p>Network: Optimism</p>
-          <p>Contract: {`${NFT_CONTRACT_ADDRESS.slice(0, 6)}...${NFT_CONTRACT_ADDRESS.slice(-4)}`}</p>
-        </div>
-        <div className="modal-actions">
-          <button 
-            className="confirm-button" 
-            onClick={onConfirm}
-            disabled={isLoading}
-          >
-            {getButtonText()}
-          </button>
-          <button 
-            className="cancel-button" 
-            onClick={onClose}
-            disabled={isLoading}
-          >
-            Cancel
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const MintNFT: React.FC = () => {
-  const address = useAddress();
-  const { contract } = useContract(NFT_CONTRACT_ADDRESS);
-  const { data: mintFee } = useContractRead(contract, "mintFee");
-  const { mutateAsync: mint } = useContractWrite(contract, "mint");
-  const switchChain = useSwitchChain();
-
-  const [selected, setSelected] = useState<NFTChoice | null>(null);
-  const [fee, setFee] = useState<string>("0");
-  const [isMinting, setIsMinting] = useState(false);
-  const [status, setStatus] = useState<"idle" | "pending" | "success" | "error">("idle");
-  const [errorMsg, setErrorMsg] = useState("");
-  const [txHash, setTxHash] = useState("");
-  const [showConfirmation, setShowConfirmation] = useState(false);
-  const [mintStep, setMintStep] = useState<"approve" | "sign" | "minting">("approve");
-
-  React.useEffect(() => {
-    if (mintFee) {
-      try {
-        setFee(ethers.utils.formatEther(mintFee));
-      } catch (error) {
-        setErrorMsg("Failed to parse mint fee");
-        setStatus("error");
-      }
-    }
-  }, [mintFee]);
-
-  const buildMetadata = useCallback((): NFTMetadata | null => {
-    if (!selected) return null;
-    
-    return {
-      name: `Don't Kill the Jam: ${NFT_OPTIONS[selected].name}`,
-      description: NFT_OPTIONS[selected].description,
-      image: NFT_OPTIONS[selected].image,
-    };
-  }, [selected]);
-
-  const handleMintClick = useCallback(() => {
-    if (!selected || !fee) {
-      setErrorMsg("Select an NFT and ensure fee is loaded");
-      setStatus("error");
-      return;
-    }
-    setMintStep("approve");
-    setShowConfirmation(true);
-  }, [selected, fee]);
-
-  const handleConfirmMint = useCallback(async () => {
-    if (!contract || !address || !selected || !mintFee) {
-      setErrorMsg("Missing required data for minting");
-      setStatus("error");
-      return;
-    }
-
-    try {
-      await switchChain(OPTIMISM_CHAIN_ID);
-
-      setIsMinting(true);
-      setErrorMsg("");
-
-      if (mintStep === "approve") {
-        setMintStep("sign");
-        return;
-      }
-
-      if (mintStep === "sign") {
-        setMintStep("minting");
-        const metadata = buildMetadata();
-        if (!metadata) {
-          throw new Error("Failed to build metadata");
-        }
-
-        const tokenURI = createMetadataURI(metadata);
-        const mojoScore = 5;
-        const narrative = "Canoe";
-
-        const tx = await mint({
-          args: [address, tokenURI, mojoScore, narrative],
-          overrides: { value: mintFee },
-        });
-
-        if (!tx?.receipt?.transactionHash) {
-          throw new Error("No transaction hash returned");
-        }
-
-        setTxHash(tx.receipt.transactionHash);
-        setStatus("success");
-        setSelected(null);
-        setShowConfirmation(false);
-      }
-    } catch (err: any) {
-      console.error("Minting error:", err);
-      let errorMessage = "Minting failed";
-      
-      if (err.code === 4001 || err.message?.includes("user rejected")) {
-        errorMessage = "Transaction rejected by user";
-      } else if (err.message?.includes("insufficient funds")) {
-        errorMessage = "Insufficient ETH for mint fee or gas";
-      } else if (err.reason) {
-        errorMessage = `Contract error: ${err.reason}`;
-      } else if (err.message) {
-        errorMessage = err.message;
-      }
-      
-      setErrorMsg(errorMessage);
-      setStatus("error");
-      setShowConfirmation(false);
-    } finally {
-      setIsMinting(false);
-    }
-  }, [address, selected, mintFee, mint, contract, buildMetadata, switchChain, mintStep]);
-
-  return (
     <div className="mint-nft-container">
-      <ConfirmationModal
-        isOpen={showConfirmation}
-        onClose={() => {
-          setShowConfirmation(false);
-          setMintStep("approve");
-        }}
-        onConfirm={handleConfirmMint}
-        nftDetails={selected ? {
-          name: NFT_OPTIONS[selected].name,
-          description: NFT_OPTIONS[selected].description,
-          image: NFT_OPTIONS[selected].image,
-          fee
-        } : null}
-        isLoading={isMinting}
-        step={mintStep}
-      />
-
-      {status !== "idle" && (
-        <div className={`mint-status ${status}`}>
-          {status === "pending" && <p>Minting in progress...</p>}
-          {status === "success" && (
-            <>
-              <p>Minted successfully! 🎉</p>
-              <a
-                href={`https://optimistic.etherscan.io/tx/${txHash}`}
-                target="_blank"
-                rel="noreferrer"
-              >
-                View Transaction
-              </a>
-            </>
-          )}
-          {status === "error" && <p>Error: {errorMsg}</p>}
+      {error && <div className="error-message">{error}</div>}
+      
+      {!selected ? (
+        <div className="nft-options">
+          <h3>Select an NFT</h3>
+          {Object.entries(NFT_OPTIONS).map(([key, opt]) => (
+            <div
+              key={key}
+              onClick={() => setSelected(key as NFTChoice)}
+              className="nft-option"
+            >
+              <img src={opt.image} alt={opt.name} />
+              <h4>{opt.name}</h4>
+            </div>
+          ))}
         </div>
-      )}
-
-      {status === "idle" && (
-        <>
-          {!selected && (
-            <div className="nft-options">
-              <h3>Select an NFT (Mint Fee: {fee} ETH)</h3>
-              {Object.entries(NFT_OPTIONS).map(([key, opt]) => (
-                <div
-                  key={key}
-                  onClick={() => setSelected(key as NFTChoice)}
-                  className="nft-option"
-                >
-                  <img src={opt.image} alt={opt.name} />
-                  <h4>{opt.name}</h4>
-                </div>
-              ))}
-            </div>
-          )}
-          {selected && (
-            <div className="selected-nft">
-              <img
-                src={NFT_OPTIONS[selected].image}
-                alt={NFT_OPTIONS[selected].name}
-              />
-              <h4>{NFT_OPTIONS[selected].name}</h4>
-              <p>{NFT_OPTIONS[selected].description}</p>
-              <button
-                className="mint-button"
-                onClick={handleMintClick}
-                disabled={isMinting || !mintFee}
-              >
-                {isMinting ? "Minting..." : "Mint NFT"}
-              </button>
-            </div>
-          )}
-        </>
+      ) : (
+        <div className="selected-nft">
+          <img
+            src={NFT_OPTIONS[selected].image}
+            alt={NFT_OPTIONS[selected].name}
+          />
+          <h4>{NFT_OPTIONS[selected].name}</h4>
+          <p>{NFT_OPTIONS[selected].description}</p>
+          <button
+            className="mint-button"
+            onClick={handleMint}
+            disabled={isMinting || !mintFee}
+          >
+            {isMinting ? "Minting..." : "Mint NFT"}
+          </button>
+        </div>
       )}
     </div>
   );
