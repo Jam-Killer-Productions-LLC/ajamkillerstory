@@ -193,7 +193,7 @@ const MintNFT: React.FC = () => {
       }
 
       const tokenURI = createMetadataURI(metadata);
-      const mojoScore = BigInt(metadata.attributes.find(attr => attr.trait_type === "Mojo Score")?.value || "0");
+      const mojoScore = metadata.attributes.find(attr => attr.trait_type === "Mojo Score")?.value || "0";
       const narrative = metadata.attributes.find(attr => attr.trait_type === "Narrative")?.value || "";
 
       const tx = await mint({
