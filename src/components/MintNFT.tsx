@@ -7,9 +7,21 @@ const NFT_CONTRACT_ADDRESS = "0x914B1339944D48236738424e2dBDBB72A212B2F5";
 const OPTIMISM_CHAIN_ID = 10;
 
 const NFT_OPTIONS = {
-  A: { image: ".../dktjnft1.gif", name: "The Noise Police Neighbor", description: "..." },
-  B: { image: ".../dktjnft2.gif", name: "The Mean Girlfriend",     description: "..." },
-  C: { image: ".../dktjnft3.gif", name: "The Jerk Bar Owner",       description: "..." },
+  A: {
+    image: "https://bafybeiakvemnjhgbgknb4luge7kayoyslnkmgqcw7xwaoqmr5l6ujnalum.ipfs.dweb.link?filename=dktjnft1.gif",
+    name: "The Noise Police Neighbor",
+    description: "Your uptight neighbor with a decibel meter and a vendetta against fun.",
+  },
+  B: {
+    image: "https://bafybeiapjhb52gxhsnufm2mcrufk7d35id3lnexwftxksbcmbx5hsuzore.ipfs.dweb.link?filename=dktjnft2.gif",
+    name: "The Mean Girlfriend",
+    description: "She says your music is 'too loud' and 'embarrassing'.",
+  },
+  C: {
+    image: "https://bafybeifoew7nyl5p5xxroo3y4lhb2fg2a6gifmd7mdav7uibi4igegehjm.ipfs.dweb.link?filename=dktjnft3.gif",
+    name: "The Jerk Bar Owner",
+    description: "He cut your set short for 'being too experimental'.",
+  },
 } as const;
 
 type NFTChoice = keyof typeof NFT_OPTIONS;
